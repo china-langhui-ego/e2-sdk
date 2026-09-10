@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E2_HMD_SDK — Usage Flow &amp; Data Format</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#161b22; --panel2:#1c2129; --border:#2a313c;
+    --text:#c9d1d9; --muted:#8b949e; --dim:#6e7681;
+    --c-pipe:#58a6ff; --c-grab:#f0883e; --c-fmp4:#3fb950;
+    --c-sensor:#bc8cff; --c-util:#d2a8ff;
+    --c-cam:#3fb950; --c-audio:#f0883e; --c-utc:#d2a8ff; --c-calib:#58a6ff; --c-base:#f0883e;
+    --warn:#f85149; --warn-bg:#3b1219;
+    --ok:#3fb950; --ok-bg:#0d2818;
+    --info:#79c0ff; --info-bg:#0c2740;
+    --code-bg:#0d1117; --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',Roboto,Helvetica,Arial,sans-serif;
+       font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--c-pipe);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  .layout{display:flex;min-height:100vh}
+  /* ---- sidebar ---- */
+  .nav{width:264px;flex:0 0 264px;background:var(--panel);border-right:1px solid var(--border);
+       position:sticky;top:0;height:100vh;overflow-y:auto;padding:22px 0}
+  .nav .brand{padding:0 22px 18px;border-bottom:1px solid var(--border);margin-bottom:14px}
+  .nav .brand .lib{font-family:var(--mono);font-size:15px;color:#fff;font-weight:600}
+  .nav .brand .sub{font-size:12px;color:var(--muted);margin-top:4px}
+  .nav .grp{padding:6px 22px 2px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim)}
+  .nav a{display:block;padding:6px 22px 6px 30px;color:var(--muted);font-size:14px;border-left:3px solid transparent}
+  .nav a:hover{background:var(--panel2);color:var(--text);text-decoration:none}
+  .nav a.l0{border-left-color:var(--c-pipe)}
+  .nav a.l1{border-left-color:var(--c-grab)}
+  .nav a.l2{border-left-color:var(--c-fmp4)}
+  .nav a.l3{border-left-color:var(--c-sensor)}
+  .nav a.l4{border-left-color:var(--c-util)}
+  .nav a.cam{border-left-color:var(--c-cam)}
+  .nav a.sensor{border-left-color:var(--c-sensor)}
+  .nav a.audio{border-left-color:var(--c-audio)}
+  .nav a.utc{border-left-color:var(--c-utc)}
+  .nav a.calib{border-left-color:var(--c-calib)}
+  .nav a.base{border-left-color:var(--c-base)}
+
+  /* ---- content ---- */
+  .content{flex:1;min-width:0;padding:0 56px 120px;max-width:1180px}
+  section{padding-top:46px;border-bottom:1px solid var(--border)}
+  section:last-child{border-bottom:0}
+  h1{font-size:32px;margin:0 0 6px;color:#fff;letter-spacing:-.01em}
+  h2{font-size:24px;margin:0 0 16px;color:#fff;border-left:4px solid var(--c-pipe);padding-left:12px}
+  h2.cam{border-left-color:var(--c-cam)} h2.sensor{border-left-color:var(--c-sensor)}
+  h2.audio{border-left-color:var(--c-audio)} h2.utc{border-left-color:var(--c-utc)}
+  h2.calib{border-left-color:var(--c-calib)} h2.base{border-left-color:var(--c-base)}
+  h3{font-size:18px;margin:30px 0 10px;color:#e6edf3}
+  h4{font-size:15px;margin:22px 0 8px;color:#e6edf3;font-weight:600}
+  p{margin:10px 0}
+  .lead{color:var(--muted);font-size:15px;margin-top:0}
+  code, .ic{font-family:var(--mono);font-size:.88em;background:var(--panel2);
+            padding:1px 6px;border-radius:5px;color:#e6b673;border:1px solid var(--border)}
+
+  /* ---- code ---- */
+  pre{background:var(--code-bg);border:1px solid var(--border);border-radius:10px;
+      padding:18px 20px;overflow-x:auto;margin:16px 0;font-size:13.5px;line-height:1.6}
+  pre code{background:none;border:0;padding:0;color:var(--text);font-size:inherit}
+  pre.tree{color:#9aa4b2}
+  pre.tree .d{color:#8b949e}
+  pre.tree .cam{color:var(--c-cam)} pre.tree .sensor{color:var(--c-sensor)}
+  pre.tree .audio{color:var(--c-audio)} pre.tree .utc{color:var(--c-utc)}
+  pre.tree .calib{color:var(--c-calib)} pre.tree .base{color:var(--c-base)}
+  .c-kw{color:#ff7b72}.c-fn{color:#d2a8ff}.c-str{color:#a5d6ff}.c-num{color:#79c0ff}
+  .c-typ{color:#ffa657}.c-com{color:#8b949e;font-style:italic}.c-mi{color:#7ee787}
+  .c-pp{color:#d2a8ff}
+  .c-k{color:#ff7b72}.c-s{color:#a5d6ff}.c-n{color:#79c0ff}.c-p{color:#d2a8ff}
+  .c-t{color:#ffa657}.c-c{color:#8b949e;font-style:italic}
+
+  /* ---- tables ---- */
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.5px}
+  th,td{text-align:left;padding:8px 12px;border:1px solid var(--border);vertical-align:top}
+  th{background:var(--panel2);color:#e6edf3;font-weight:600}
+  td code,.td-mono{font-family:var(--mono);font-size:12.5px;color:#e6b673;background:transparent;border:0;padding:0}
+  tr:nth-child(even) td{background:rgba(255,255,255,.015)}
+
+  /* ---- cards ---- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin:18px 0}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;border-top:3px solid var(--c-pipe)}
+  .card .n{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .card .t{font-size:16px;color:#fff;margin:4px 0 8px;font-weight:600}
+  .card .d{font-size:13px;color:var(--muted)}
+  .card.p{border-top-color:var(--c-pipe)}.card.g{border-top-color:var(--c-grab)}
+  .card.f{border-top-color:var(--c-fmp4)}.card.s{border-top-color:var(--c-sensor)}
+  .card.u{border-top-color:var(--c-util)}
+  a.card:hover{text-decoration:none;border-color:var(--c-pipe)}
+
+  /* ---- callouts ---- */
+  .callout{border-radius:10px;padding:14px 18px 14px 16px;margin:16px 0;border-left:4px solid;display:flex;gap:12px}
+  .callout .ico{flex:0 0 auto;font-size:18px;line-height:1.4}
+  .callout.warn{background:var(--warn-bg);border-color:var(--warn)}
+  .callout.ok{background:var(--ok-bg);border-color:var(--ok)}
+  .callout.info{background:var(--info-bg);border-color:var(--info)}
+  .callout .body{flex:1;min-width:0}
+  .callout .body p{margin:4px 0}
+  .callout b{color:#fff}
+
+  /* ---- flow diagrams ---- */
+  .flow{display:flex;align-items:stretch;flex-wrap:wrap;gap:0;margin:18px 0}
+  .step{flex:1 1 auto;min-width:92px;background:var(--panel2);border:1px solid var(--border);
+        border-radius:8px;padding:10px 8px;text-align:center;position:relative}
+  .step .s-no{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .step .s-nm{font-family:var(--mono);font-size:13px;color:#fff;margin-top:2px;word-break:break-word}
+  .step .s-desc{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.35}
+  .arr{flex:0 0 18px;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:18px}
+  .step.pipe{border-top:3px solid var(--c-pipe)}
+  .step.grab{border-top:3px solid var(--c-grab)}
+  .step.fmp4{border-top:3px solid var(--c-fmp4)}
+  .step.sens{border-top:3px solid var(--c-sensor)}
+  .step.util{border-top:3px solid var(--c-util)}
+  .step.warn{border-color:var(--warn);background:var(--warn-bg)}
+  .step.warn .s-nm{color:#ffb4a8}
+
+  /* pipe diagram (data path) */
+  .pipe-line{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:18px 0;
+             background:var(--code-bg);border:1px solid var(--border);border-radius:10px;padding:18px}
+  .node{font-family:var(--mono);font-size:13px;background:var(--panel2);border:1px solid var(--border);
+        border-radius:8px;padding:10px 14px;color:#fff;text-align:center;min-width:64px}
+  .node .lab{font-size:10px;color:var(--dim);display:block;margin-top:2px;font-family:-apple-system,sans-serif}
+  .node.sensor{border-color:#f0883e;color:#ffb380}
+  .node.vif{border-color:#bc8cff;color:#d6b3ff}
+  .node.isp{border-color:#58a6ff;color:#9ecbff}
+  .node.scl{border-color:#3fb950;color:#7ee787}
+  .node.venc{border-color:#d2a8ff;color:#e6c0ff}
+  .node.disk{border-color:#f85149;color:#ff9c96}
+  .pipe-arr{color:var(--dim);font-size:20px}
+
+  /* part divider band */
+  .part-band{margin:10px 0 6px;padding:26px 30px;border-radius:14px;
+             background:linear-gradient(135deg,#1c2129,#161b22);border:1px solid var(--border);border-left:5px solid var(--c-pipe)}
+  .part-band.g{border-left-color:var(--c-fmp4)}
+  .part-band .pt{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);font-family:var(--mono)}
+  .part-band h2{margin:8px 0 4px;color:#fff;font-size:24px;border:0;padding:0}
+  .part-band p{margin:4px 0 0;color:var(--muted);font-size:14px}
+
+  .badge{display:inline-block;font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:5px;border:1px solid var(--border);color:var(--muted);margin-left:6px}
+  .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:10px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);margin:0 6px 4px 0}
+  .tag.b{color:#9ecbff;border-color:#1f3a5f}.tag.o{color:#ffb380;border-color:#5a3a1f}
+  .tag.g{color:#7ee787;border-color:#1f4a2a}.tag.p{color:#d6b3ff;border-color:#3f2a5a}
+
+  .meta{color:var(--dim);font-size:13px}
+  hr{border:0;border-top:1px solid var(--border);margin:28px 0}
+  .toc-ref{color:var(--dim);font-size:12px}
+  .kbd{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:1px 6px}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- =========================== SIDEBAR =========================== -->
+<nav class="nav">
+  <div class="brand">
+    <div class="lib">E2_HMD_SDK</div>
+    <div class="sub">Usage flow + dataset format</div>
+  </div>
+  <div class="grp">Part I · API Usage</div>
+  <a href="#top">About This Document</a>
+  <a href="#overview">Overview: Two Libraries &amp; Loading</a>
+  <a href="#workflow">Minimal Workflow</a>
+  <a href="#api">API Reference</a>
+  <a href="#custom">Custom Configuration (HAL)</a>
+  <a href="#example">Complete Usage Example</a>
+  <a href="#build">Build &amp; Deployment</a>
+  <div class="grp">Part II · Dataset Structure &amp; Formats</div>
+  <a class="base" href="#ds-overview">Overview</a>
+  <a class="base" href="#ds-tree">Directory Structure</a>
+  <a class="base" href="#ds-time">Time Bases</a>
+  <a class="cam" href="#ds-camera">Video &amp; Metadata (Camera)</a>
+  <a class="sensor" href="#ds-sensors">Sensors</a>
+  <a class="audio" href="#ds-audio">Audio</a>
+  <a class="utc" href="#ds-utcsync">UTC &amp; Timestamp Domains</a>
+  <a class="calib" href="#ds-calib">Calibration &amp; Device ID</a>
+  <a class="base" href="#ds-align">Time Alignment &amp; Conversion</a>
+  <a class="base" href="#ds-example">Complete Example</a>
+</nav>
+
+<!-- =========================== CONTENT =========================== -->
+<div class="content">
+
+<!-- ===== TITLE ===== -->
+<section id="top" style="border:0;padding-top:48px">
+  <h1>E2 HMD SDK — Usage Flow &amp; Data Format</h1>
+  <p class="lead">Complete reference for the stereo camera recording SDK. The document has two parts:
+  <b>Part I</b> is the <span class="ic">usage flow</span> of the recording API
+  (two dlopen-loaded shared libraries, <code>libsxr_recorder.so</code> + <code>libsxr_hal.so</code>, focused on how to call them);
+  <b>Part II</b> is the <span class="ic">file structure and formats</span> of the recorded dataset
+  (<span class="ic">clip_NNN/</span> directories).</p>
+  <p class="meta">Source directories: <span class="ic">sdk/ego/libsxr_recorder/</span> + <span class="ic">sdk/ego/libsxr_hal/</span> ·
+     Public headers: <span class="ic">include/sxr_recorder.h</span> + <span class="ic">sxr_hal.h</span> ·
+     System default APP: <span class="ic">sdk/verify/sample_code/demo/sxrservice</span> (build artifact <code>prog_sxrservice</code>, auto-started at ROM boot) ·
+     Reference caller: <span class="ic">fmp4_recorder/main.cpp</span> (build artifact <code>prog_fmp4_recorder</code>, standalone test tool)</p>
+  <p class="meta">2026-08-22 update: Part I has been rewritten against the current <code>sxr_*</code> two-library API and covers API usage only;
+     HAL internals are not covered.</p>
+  <p class="meta">2026-08-27 update: dataset physical timestamps switched to <code>CLOCK_REALTIME</code> (<code>*_utc_ns</code> columns);
+     the <code>sensor_time_to_utc.csv</code> sidecar file was removed; the recorder API was bumped to v3 (new <code>record_rotate</code> segment switch).</p>
+
+  <div class="cards">
+    <a class="card p" href="#api-part">
+      <div class="n">Part I</div><div class="t">API Usage Flow</div>
+      <div class="d">Two-library division of labor &amp; loading, minimal workflow (init→start/stop→deinit), event/preview callbacks, custom configuration (HAL), build &amp; deployment</div>
+    </a>
+    <a class="card f" href="#ds-part">
+      <div class="n">Part II</div><div class="t">Dataset Structure &amp; Formats</div>
+      <div class="d">Directory layout of the recording output, semantics of each CSV / JSON / MP4 field, timestamp bases, UTC mapping &amp; cross-stream alignment</div>
+    </a>
+  </div>
+</section>
+
+<!-- ===== PART I BAND ===== -->
+<section id="api-part" style="border:0;padding:52px 0 0">
+  <div class="part-band">
+    <div class="pt">Part I · SDK API Usage</div>
+    <h2>Recording API Usage</h2>
+    <p>Two-library division &amp; loading / minimal workflow / API reference / custom configuration (HAL) / complete example / build &amp; deployment.</p>
+  </div>
+</section>
+
+<!-- ===== OVERVIEW ===== -->
+<section id="overview">
+  <h2>Overview: Two Libraries &amp; Loading</h2>
+  <p>The SDK is split into <b>two dlopen-able shared libraries</b>, each exporting a <b>single symbol</b> that fills a versioned vtable. Applications normally <b>include only
+  <code>sxr_recorder.h</code></b>; the HAL is loaded internally by the recorder and is generally invisible to the app.</p>
+
+  <div class="flow">
+    <div class="step pipe"><div class="s-no">System default APP</div><div class="s-nm">prog_sxrservice</div>
+      <div class="s-desc">Auto-runs at ROM boot<br>calls record_* / imu_get_latest via recorder_bridge</div></div>
+    <div class="arr">→</div>
+    <div class="step pipe"><div class="s-no">dlopen</div><div class="s-nm">libsxr_recorder.so</div>
+      <div class="s-desc">Recording session (singleton)<br>MI-free, links no libmi_*</div></div>
+    <div class="arr">→</div>
+    <div class="step pipe"><div class="s-no">dlopen'ed internally</div><div class="s-nm">libsxr_hal.so</div>
+      <div class="s-desc">Pipeline / sensors / calibration / audio<br>MI libs self-locate via RPATH /config/lib</div></div>
+  </div>
+
+  <table>
+    <tr><th></th><th>libsxr_recorder.so</th><th>libsxr_hal.so</th></tr>
+    <tr><td><b>Role</b></td><td>Recording session (main public API entry)</td><td>Hardware abstraction: low-level capabilities</td></tr>
+    <tr><td><b>Responsibilities</b></td><td>Record-segment management, fMP4/metainfo/sensor-CSV persistence, dataset generation</td><td>MI pipeline, IMU/mag threads, calibration, UUID, audio capture</td></tr>
+    <tr><td><b>Public header</b></td><td><code>include/sxr_recorder.h</code></td><td><code>sxr_hal.h</code> (used inside the recorder via hal_loader)</td></tr>
+    <tr><td><b>Export</b></td><td><code>sxr_recorder_get_api()</code> → v3 vtable (6 slots, including <code>record_rotate</code>)</td><td><code>sxr_hal_get_api()</code> → v3 vtable</td></tr>
+    <tr><td><b>MI dependencies</b></td><td>None (pure C/C++ runtime)</td><td>Links <code>libmi_*</code> + CUS3A/ISPALGO</td></tr>
+    <tr><td><b>Loading</b></td><td>dlopen'ed by the app (<code>sxr_recorder_api()</code> inline loader)</td><td>dlopen'ed internally by the recorder (<code>mi_hal()</code>, <code>RTLD_GLOBAL</code>)</td></tr>
+  </table>
+
+  <h4>Loading paths</h4>
+  <ul>
+    <li><b>recorder</b>: the inline loader in <code>sxr_recorder.h</code> tries <code>/customer/sd/libsxr_recorder.so</code> first, then <code>/customer/sample_code/lib/</code>. Returns NULL if not found.</li>
+    <li><b>HAL</b>: <code>hal_loader.cpp</code> tries the bare name <code>libsxr_hal.so</code> first (requires <code>LD_LIBRARY_PATH</code>), then <code>/customer/sd/</code> and <code>/customer/sample_code/lib/</code>. <b>The HAL is integrated in the ROM</b> — developers never need to touch or push it; the loader's fallback paths hit it automatically.</li>
+  </ul>
+
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p><b>The HAL must be loaded with RTLD_GLOBAL.</b> <code>libsxr_hal.so</code> pulls in the underlying <code>libmi_*.so</code>,
+      which are in global scope when the app links them directly; if dlopen'ed with <code>RTLD_LOCAL</code>, symbol resolution
+      between MI libraries fails ("can't resolve symbol"). The recorder side is MI-free and carries no symbol-conflict risk.</p>
+      <p><b>The HAL embeds <code>RPATH /config/lib</code></b>, so its MI dependencies (located under <code>/config/lib</code>) self-locate.
+      On the app side, <code>LD_LIBRARY_PATH=/customer/sd</code> (the directory holding the recorder) is all that's needed.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== WORKFLOW ===== -->
+<section id="workflow">
+  <h2>Minimal Workflow</h2>
+  <p>Recommended usage: use <code>libsxr_recorder</code> only, with all parameters at their library defaults. The entire recording session is a <b>singleton</b>:</p>
+
+  <div class="flow">
+    <div class="step pipe"><div class="s-no">①</div><div class="s-nm">record_init</div><div class="s-desc">Build pipeline (default config)<br>start IMU/mag threads<br>optionally start preview callback</div></div><div class="arr">→</div>
+    <div class="step grab"><div class="s-no">②</div><div class="s-nm">record_start(dir)</div><div class="s-desc">Start a segment asynchronously<br>force IDR → STARTED</div></div><div class="arr">→</div>
+    <div class="step fmp4"><div class="s-no">③</div><div class="s-nm">Recording…</div><div class="s-desc">Writes Camera{0,1}/<br>Sensors/ + Audio/</div></div><div class="arr">→</div>
+    <div class="step grab"><div class="s-no">④</div><div class="s-nm">record_stop</div><div class="s-desc">Close video.mp4<br>(write back moov), finalize segment</div></div><div class="arr">→</div>
+    <div class="step pipe"><div class="s-no">⑤</div><div class="s-nm">record_deinit</div><div class="s-desc">Finalize any lingering segment<br>stop threads, tear down pipeline</div></div>
+  </div>
+
+  <p>Steps ②–④ can loop over <b>N segments</b> (each with its own <code>clip_NNN/</code> directory) without restarting the pipeline; you can also call
+  <code>record_rotate(new_dir)</code> during recording to atomically switch to a new directory (no stop, no dropped frames, no cross-file mixing).</p>
+
+  <div class="callout warn">
+    <div class="ico">⚠️</div>
+    <div class="body">
+      <p><b><code>record_start</code> is asynchronous.</b> A return of 0 only means it was enqueued; actual disk writing begins only after the
+      <code>SXR_REC_EVT_STARTED</code> event (dispatched once both eyes have captured the forced IDR). Calling <code>record_stop</code> immediately
+      without waiting yields empty files. <code>IDR_TIMEOUT</code> / <code>WRITE_ERROR</code> events auto-finalize the segment.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== API ===== -->
+<section id="api">
+  <h2>API Reference</h2>
+
+  <h3>libsxr_recorder — 6 APIs (v3 vtable)</h3>
+  <table>
+    <tr><th>Function</th><th>Purpose</th><th>Returns</th></tr>
+    <tr><td><code>record_init(preview_cb, userdata)</code></td>
+        <td>Singleton init: builds the stereo pipeline internally + starts IMU/mag threads; if <code>preview_cb</code> is given, also starts sub-stream frame grab. Can be init'ed/deinit'ed repeatedly</td>
+        <td>0 success; −1 failure (not initialized)</td></tr>
+    <tr><td><code>record_deinit()</code></td>
+        <td>Teardown: finalizes any still-active record segment → stops preview dispatch/sensor threads → tears down the pipeline. Idempotent</td>
+        <td>—</td></tr>
+    <tr><td><code>record_start(dir, evt_cb, userdata)</code></td>
+        <td>Starts a record segment asynchronously: creates <code>&lt;dir&gt;/Camera{0,1}/{video.mp4,metainfo.csv}</code> + Sensors CSV + Audio, forces an IDR, then emits <code>STARTED</code></td>
+        <td>0 enqueued; −1 failure (not init'ed / already recording)</td></tr>
+    <tr><td><code>record_stop()</code></td>
+        <td>Ends the current segment: closes video.mp4 (writes back moov) + metainfo, stops sensor CSV. Idempotent</td>
+        <td>0 success; −1 no active segment</td></tr>
+    <tr><td><code>record_rotate(new_dir)</code></td>
+        <td>v3 sharded recording: atomically switches to a new directory mid-recording (opens the new segment sink + forces an IDR first, then drains and finalizes the old segment). No stop, no dropped frames, no cross-file mixing</td>
+        <td>See header for new-segment handle semantics; −1 failure (no active segment / open failed — old segment continues)</td></tr>
+    <tr><td><code>imu_get_latest(&amp;sample)</code></td>
+        <td>O(1) read of the latest IMU/mag value cache (mutex-protected), fills <code>sxr_imu_sample_t</code></td>
+        <td>0 has data; −1 no data</td></tr>
+  </table>
+
+  <h4>record_init internal defaults (fixed; not changeable via the recorder)</h4>
+  <table>
+    <tr><th>Item</th><th>Default</th></tr>
+    <tr><td>Cameras</td><td>stereo (dual): Camera0 left + Camera1 right; actually governed by the HAL-detected <code>camera_mask</code> (a channel is skipped if its pad has no sensor)</td></tr>
+    <tr><td>Resolution</td><td>Auto-detected: the HAL decides from the sensor models mounted on pad0/pad2 — SC235HGS = 1600×1200, SC233HGS = 1920×1200, SC132GS = 1080×1280</td></tr>
+    <tr><td>Main stream</td><td>HEVC Main, GOP=30, CBR 4 Mbps, IP-only (no B-frames)</td></tr>
+    <tr><td>Sub-stream (preview)</td><td>Auto, main stream /4: 2 Mbps, 15 fps (preview size follows the sensor, e.g. 400×300 / 480×300; VENC ch1=Cam0 / ch3=Cam1)</td></tr>
+    <tr><td>IMU / mag sample rates</td><td>accel 800 Hz, gyro 800 Hz, mag 200 Hz</td></tr>
+    <tr><td>IQ</td><td>Auto: picks <code>sc235hgs_api.bin</code> / <code>sc233hgs_api.bin</code> by sensor model</td></tr>
+    <tr><td>Audio</td><td>16 kHz, 2 ch, S16_LE (the SDK has no audio encoder, PCM fMP4)</td></tr>
+    <tr><td>Clocks</td><td>ISP 216 MHz, SCL 288 MHz (set via <code>/proc</code> internally)</td></tr>
+  </table>
+
+  <h3>Event callback <code>sxr_rec_event_cb_t</code></h3>
+  <pre><code><span class="c-kw">typedef enum</span> {
+    SXR_REC_EVT_STARTED,       <span class="c-com">// both eyes' first IDR written; recording in progress</span>
+    SXR_REC_EVT_IDR_TIMEOUT,   <span class="c-com">// forced-IDR timeout (default 1s) → auto-finalize, no data</span>
+    SXR_REC_EVT_WRITE_ERROR,   <span class="c-com">// write failure → auto-finalize, files may be incomplete</span>
+} <span class="c-typ">sxr_rec_evt_t</span>;
+<span class="c-kw">typedef void</span> (*<span class="c-typ">sxr_rec_event_cb_t</span>)(<span class="c-typ">sxr_rec_evt_t</span> evt, <span class="c-kw">int</span> error_code, <span class="c-kw">void</span> *userdata);</code></pre>
+
+  <div class="callout warn">
+    <div class="ico">⚠️</div>
+    <div class="body">
+      <p><b>Event callbacks run on a library-internal thread.</b> They must be short and non-blocking; <b>never</b> call <code>record_*</code> from inside a callback
+      (set a flag and handle it in your main loop). An error event only withdraws the segment and marks it STOPPING; <code>record_stop</code> is idempotent on an already-STOPPING segment, and finalization is still driven by the app's call.</p>
+    </div>
+  </div>
+
+  <h3>Preview callback <code>sxr_frame_cb_t</code> (optional)</h3>
+  <pre><code><span class="c-kw">typedef void</span> (*<span class="c-typ">sxr_frame_cb_t</span>)(<span class="c-kw">int</span> pipe_id, <span class="c-kw">int</span> ch,
+    <span class="c-kw">const uint8_t</span> *data, <span class="c-typ">size_t</span> size, <span class="c-typ">int64_t</span> pts_us, <span class="c-kw">int</span> is_sync,
+    <span class="c-kw">const uint8_t</span> *csd, <span class="c-typ">size_t</span> csd_size, <span class="c-kw">void</span> *userdata);</code></pre>
+  <ul>
+    <li>Receives <b>sub-stream</b> encoded frames: <code>ch=1</code> (Cam0), <code>ch=3</code> (Cam1). Runs for the whole preview period, zero disk writes.</li>
+    <li>The callback executes on a library-internal <b>dispatch thread</b> (the HAL grab thread only enqueues), but it is still an internal thread — return quickly; when the queue is full the <b>oldest</b> frame is dropped to keep the newest.</li>
+    <li>If <code>preview_cb</code> is not provided, sub-stream frame grab is not started at all.</li>
+  </ul>
+
+  <h3>Data type <code>sxr_imu_sample_t</code></h3>
+  <pre><code><span class="c-kw">typedef struct</span> {
+    <span class="c-kw">double</span>  accel[3];   <span class="c-com">// m/s², body frame</span>
+    <span class="c-kw">double</span>  gyro[3];    <span class="c-com">// rad/s, body frame</span>
+    <span class="c-kw">double</span>  mag[3];     <span class="c-com">// μT</span>
+    <span class="c-typ">int64_t</span> ts_ns;      <span class="c-com">// CLOCK_MONOTONIC_RAW (runtime cache domain; converted to *_utc_ns via the UTC bridge when written to dataset CSVs)</span>
+} <span class="c-typ">sxr_imu_sample_t</span>;</code></pre>
+
+  <h3>Output: the dataset</h3>
+  <p>Each <code>record_start(dir)</code> produces a complete dataset under <code>dir</code> (video/metadata/sensors/audio/calibration);
+  see <a href="#ds-part">Part II</a> for the structure and fields.</p>
+
+  <div class="callout ok">
+    <div class="ico">✓</div>
+    <div class="body">
+      <p><b>Usage notes:</b> always write output to the SD card (<code>/customer/sd/</code>); <code>/tmp</code> is tmpfs and writing large files there will OOM the device.
+      The same app can run init/start/stop/deinit repeatedly; switching across apps (e.g. to the reference demo <code>prog_pipeline</code>) requires <code>adb reboot</code>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CUSTOM (HAL) ===== -->
+<section id="custom">
+  <h2>Custom Configuration: Using libsxr_hal Directly</h2>
+  <p><code>libsxr_recorder</code> runs on fixed defaults. To change bitrate / GOP / preview / audio / clocks etc., bypass the recorder
+  and call <code>libsxr_hal</code> directly: <code>pipeline_create_venc(SxrPipelineConfig*)</code> builds the pipeline → build your own frame grab/sensors,
+  and write to disk yourself. The <code>sxr_hal_api_t</code> vtable loaded by the recorder is as follows.</p>
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p><b>The structs have been simplified.</b> <code>SxrPipelineConfig</code> no longer exposes <code>camera_case</code> / pad / device /
+      <code>iq_path</code> / <code>output_dir</code>: sensor detection, main-stream resolution, and the IQ bin are all decided automatically by the HAL from
+      the sensor models mounted on pad0/pad2 (SC235HGS=1600×1200, SC233HGS=1920×1200), with results filled back into
+      <code>camera_mask / width[] / height[] / pts_offset_ns</code>.</p>
+    </div>
+  </div>
+
+  <h3>HAL vtable (v3, exports <code>sxr_hal_get_api</code>)</h3>
+  <table>
+    <tr><th>Group</th><th>Function</th><th>Description</th></tr>
+    <tr><td rowspan="5"><b>pipeline</b></td>
+        <td><code>pipeline_create_venc(&amp;cfg)</code></td><td>Builds the SENSOR→VIF→ISP→SCL→VENC pipeline, returns <code>pipe_id</code> (−1 on failure); auto-detects sensors and fills back <code>camera_mask / width[] / height[] / pts_offset_ns</code></td></tr>
+    <tr><td><code>pipeline_destroy(pipe_id)</code></td><td>Tears down links in reverse order, closes kernel fds</td></tr>
+    <tr><td><code>framegrab_start(pipe_id, ch, cb, ud)</code></td><td>Starts a frame-grab callback for a sub-stream channel</td></tr>
+    <tr><td><code>set_main_frame_cb(pipe_id, ch, cb, sink)</code></td><td>Main-stream frame callback (carries exposure metadata for metainfo)</td></tr>
+    <tr><td><code>force_idr(pipe_id, ch)</code></td><td>Forces an IDR (used for record-start alignment)</td></tr>
+    <tr><td rowspan="4"><b>sensors</b></td>
+        <td><code>sensors_init(ahz, ghz, mhz, exit)</code></td><td>Starts IMU/mag threads, returns a handle</td></tr>
+    <tr><td><code>sensors_set_sample_cb(s, cb, ud)</code></td><td>Registers a per-sample callback (MONOTONIC_RAW ts)</td></tr>
+    <tr><td><code>sensors_get_latest(s, ...)</code></td><td>Reads the latest-value cache</td></tr>
+    <tr><td><code>sensors_exit(s)</code></td><td>Stops the threads</td></tr>
+    <tr><td><b>calib</b></td><td><code>calib_get_camera / calib_get_imu</code></td><td>Camera intrinsics/extrinsics, IMU calibration (source of Part II's JSON data)</td></tr>
+    <tr><td><b>uuid</b></td><td><code>uuid_get(buf, len)</code></td><td>Hardware UUID (Part II's <code>id.txt</code>)</td></tr>
+    <tr><td><b>utils</b></td><td><code>pts_to_realtime_ns(pts, offset_ns)</code></td><td>MI PTS → timestamp conversion</td></tr>
+    <tr><td><b>audio</b></td><td><code>audio_start / audio_stop</code></td><td>Microphone PCM capture (the SDK has no encoder)</td></tr>
+  </table>
+
+  <h3>Key fields of the config struct <code>SxrPipelineConfig</code></h3>
+  <pre><code><span class="c-kw">typedef struct</span> <span class="c-typ">SxrPipelineConfig</span> {
+    <span class="c-com">/* Input (configurable; 0 = use default) */</span>
+    <span class="c-kw">int</span>   isp_clk;             <span class="c-com">// ISP clock Hz, default 216M</span>
+    <span class="c-kw">int</span>   scl_clk;             <span class="c-com">// SCL clock Hz, default 288M</span>
+    <span class="c-kw">int</span>   venc_gop;             <span class="c-com">// default 30 (IP-only, no B-frames)</span>
+    <span class="c-kw">int</span>   venc_bitrate_bps;     <span class="c-com">// unit bps, default 4 Mbps</span>
+    <span class="c-kw">int</span>   enable_preview;       <span class="c-com">// 0=off 1=sub-stream on</span>
+    <span class="c-kw">int</span>   preview_width;        <span class="c-com">// 0=auto -> main/4 (filled back by sensor model)</span>
+    <span class="c-kw">int</span>   preview_height;       <span class="c-com">// 0=auto -> main/4</span>
+    <span class="c-kw">int</span>   preview_bitrate_bps;  <span class="c-com">// 0=auto -> 2 Mbps</span>
+    <span class="c-kw">int</span>   preview_fps;          <span class="c-com">// 0=auto -> 15</span>
+    <span class="c-kw">volatile unsigned char</span> *exit_flag;  <span class="c-com">// exit signal</span>
+    <span class="c-typ">SxrAudioConfig</span> audio;     <span class="c-com">// audio (16k/2ch/S16LE default)</span>
+
+    <span class="c-com">/* [Output] filled back by pipeline_create_venc: auto-detects the sensors</span>
+    <span class="c-com"> * mounted on pad0/pad2 and decides main-stream resolution and IQ bin by model */</span>
+    <span class="c-kw">int</span>   camera_mask;          <span class="c-com">// bit0=Camera0, bit1=Camera1; 0=no sensor</span>
+    <span class="c-kw">int</span>   width[SXR_RECORDER_SNR_MAX];   <span class="c-com">// per-camera main-stream width (detected)</span>
+    <span class="c-kw">int</span>   height[SXR_RECORDER_SNR_MAX];  <span class="c-com">// per-camera main-stream height (detected)</span>
+    <span class="c-typ">int64_t</span> pts_offset_ns;    <span class="c-com">// [Output] PTS→MONOTONIC_RAW offset (ns)</span>
+} <span class="c-typ">SxrPipelineConfig</span>;</code></pre>
+  <p class="meta">There are also <code>SxrRecordConfig</code> (prealloc_bytes / sample_interval_us), <code>SxrRecordStats</code>
+  (frame/byte/drop statistics), and <code>SxrAudioConfig</code> (gain/sample rate). The recorder embeds all defaults; you only face these types directly when customizing.</p>
+</section>
+
+<!-- ===== EXAMPLE ===== -->
+<section id="example">
+  <h2>Complete Usage Example</h2>
+  <p>Reference caller <code>fmp4_recorder/main.cpp</code> (build artifact <code>prog_fmp4_recorder</code>, standalone test tool): previews for the whole session,
+  records N segments in a loop, then reads the IMU — using only the public <code>libsxr_recorder</code> API. The system default <code>prog_sxrservice</code>
+  (<code>sdk/verify/sample_code/demo/sxrservice</code>) drives the recorder the same way through <code>recorder_bridge.c</code>, plus
+  business logic such as BLE/WiFi/WS preview on top.</p>
+
+<pre><code><span class="c-com">#include "sxr_recorder.h"</span>
+
+<span class="c-kw">static volatile unsigned char</span> g_bExit = <span class="c-num">0</span>;
+<span class="c-kw">static volatile unsigned char</span> g_recStarted = <span class="c-num">0</span>;
+<span class="c-kw">static void</span> <span class="c-fn">sig_handler</span>(<span class="c-kw">int</span> sig){ (void)sig; g_bExit = <span class="c-num">1</span>; }
+
+<span class="c-com">/* Preview callback: sub-stream ch1/ch3 encoded frames; runs on a library thread, return quickly */</span>
+<span class="c-kw">static void</span> <span class="c-fn">preview_cb</span>(<span class="c-kw">int</span> pipe_id, <span class="c-kw">int</span> ch, <span class="c-kw">const uint8_t</span> *data, <span class="c-typ">size_t</span> size,
+                         <span class="c-typ">int64_t</span> pts_us, <span class="c-kw">int</span> is_sync,
+                         <span class="c-kw">const uint8_t</span> *csd, <span class="c-typ">size_t</span> csd_size, <span class="c-kw">void</span> *ud)
+{ <span class="c-com">/* forward to WS / display etc. */</span> (void)pipe_id;(void)ch;(void)data;(void)size;(void)is_sync;(void)csd;(void)csd_size;(void)ud; }
+
+<span class="c-com">/* Record-segment event callback: only set flags, never call record_* here */</span>
+<span class="c-kw">static void</span> <span class="c-fn">evt_cb</span>(<span class="c-typ">sxr_rec_evt_t</span> evt, <span class="c-kw">int</span> err, <span class="c-kw">void</span> *ud) {
+    (void)ud;
+    <span class="c-kw">if</span> (evt == SXR_REC_EVT_STARTED) g_recStarted = <span class="c-num">1</span>;
+    <span class="c-kw">else</span> { <span class="c-fn">printf</span>(<span class="c-str">"record event err=%d\n"</span>, err); g_bExit = <span class="c-num">1</span>; }
+}
+
+<span class="c-typ">int</span> <span class="c-fn">main</span>(<span class="c-kw">int</span> argc, <span class="c-kw">char</span> **argv) {
+    <span class="c-fn">signal</span>(SIGINT, sig_handler); <span class="c-fn">signal</span>(SIGTERM, sig_handler);
+
+    <span class="c-com">/* ① Load libsxr_recorder.so (dlopen + vtable; NULL if not found) */</span>
+    <span class="c-kw">const</span> <span class="c-typ">sxr_recorder_api_t</span> *REC = <span class="c-fn">sxr_recorder_api</span>();
+    <span class="c-kw">if</span> (!REC) { <span class="c-fn">fprintf</span>(stderr, <span class="c-str">"load libsxr_recorder.so failed\n"</span>); <span class="c-kw">return</span> -<span class="c-num">1</span>; }
+
+    <span class="c-com">/* ② Init (default stereo + IMU + audio; resolution auto-detected by sensor; preview on if preview_cb given) */</span>
+    <span class="c-kw">if</span> (REC-&gt;record_init(preview_cb, NULL) != <span class="c-num">0</span>) { <span class="c-fn">fprintf</span>(stderr, <span class="c-str">"record_init failed\n"</span>); <span class="c-kw">return</span> -<span class="c-num">1</span>; }
+    <span class="c-fn">sleep</span>(<span class="c-num">2</span>);   <span class="c-com">// wait for AE/AWB convergence, pipeline ready</span>
+
+    <span class="c-com">/* ③ Record N segments, each with its own clip_NNN/ directory */</span>
+    <span class="c-kw">for</span> (<span class="c-kw">int</span> seg = <span class="c-num">1</span>; seg &lt;= segs &amp;&amp; !g_bExit; seg++) {
+        <span class="c-kw">char</span> dir[<span class="c-num">640</span>];
+        <span class="c-fn">snprintf</span>(dir, <span class="c-kw">sizeof</span> dir, <span class="c-str">"/customer/sd/fmp4_recorder/clip_%03d"</span>, seg);
+        g_recStarted = <span class="c-num">0</span>;
+        <span class="c-kw">if</span> (REC-&gt;record_start(dir, evt_cb, NULL) != <span class="c-num">0</span>) <span class="c-kw">break</span>;  <span class="c-com">// async</span>
+        <span class="c-kw">while</span> (!g_recStarted &amp;&amp; !g_bExit) <span class="c-fn">usleep</span>(<span class="c-num">20000</span>);        <span class="c-com">// wait for STARTED</span>
+        <span class="c-fn">sleep</span>(segdur);                                    <span class="c-com">// record</span>
+        REC-&gt;record_stop();                                     <span class="c-com">// finalize this segment (moov write-back)</span>
+    }
+
+    <span class="c-com">/* ④ Read latest IMU values (optional, O(1)) */</span>
+    <span class="c-typ">sxr_imu_sample_t</span> s;
+    <span class="c-kw">if</span> (REC-&gt;imu_get_latest(&amp;s) == <span class="c-num">0</span>)
+        <span class="c-fn">printf</span>(<span class="c-str">"a=(%.2f,%.2f,%.2f) g=(%.2f,%.2f,%.2f) m=(%.1f,%.1f,%.1f) ts=%lld\n"</span>,
+               s.accel[<span class="c-num">0</span>], s.accel[<span class="c-num">1</span>], s.accel[<span class="c-num">2</span>],
+               s.gyro[<span class="c-num">0</span>], s.gyro[<span class="c-num">1</span>], s.gyro[<span class="c-num">2</span>],
+               s.mag[<span class="c-num">0</span>], s.mag[<span class="c-num">1</span>], s.mag[<span class="c-num">2</span>], (long long)s.ts_ns);
+
+    <span class="c-com">/* ⑤ Teardown (idempotent; finalizes even if record_stop was skipped) */</span>
+    REC-&gt;record_deinit();
+    <span class="c-kw">return</span> <span class="c-num">0</span>;
+}</code></pre>
+
+  <div class="callout ok">
+    <div class="ico">✓</div>
+    <div class="body">
+      <p>Directory layout after running: <code>/customer/sd/fmp4_recorder/clip_001/Camera{0,1}/...</code>, <code>Sensors/</code>,
+      <code>Audio/</code> etc. — see <a href="#ds-part">Part II</a> for the full structure and fields.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== BUILD ===== -->
+<section id="build">
+  <h2>Build &amp; Deployment</h2>
+
+  <h3>Build (CMake cross-compilation on the host, no Docker needed)</h3>
+<pre><code><span class="c-com"># One-shot build: libsxr_recorder.so + prog_fmp4_recorder (artifacts auto-stripped)</span>
+./build.sh
+
+<span class="c-com"># Artifacts:</span>
+<span class="c-com">#   build/libsxr_recorder/libsxr_recorder.so   ← dlopen'ed by the app at runtime</span>
+<span class="c-com">#   build/fmp4_recorder/prog_fmp4_recorder      ← reference app</span>
+
+<span class="c-com"># Note: libsxr_hal.so is integrated in the ROM (firmware packaging) — developers never touch it,</span>
+<span class="c-com"># no build/push needed; the recorder dlopens it automatically at runtime.</span></code></pre>
+
+  <h3>Deployment (SD-card persistent directory <code>/customer/sd/</code>)</h3>
+<pre><code><span class="c-com"># libsxr_hal.so ships in the ROM, no push needed; deploy only recorder + app</span>
+adb push build/libsxr_recorder/libsxr_recorder.so /customer/sd/
+adb push build/fmp4_recorder/prog_fmp4_recorder  /customer/sd/
+
+<span class="c-com"># Run (LD_LIBRARY_PATH points at the recorder directory; the HAL is in ROM,</span>
+<span class="c-com"># the recorder dlopens it automatically via the loader)</span>
+adb shell \
+  <span class="c-str">'cd /customer/sd &amp;&amp; LD_LIBRARY_PATH=/customer/sd ./prog_fmp4_recorder --segs 2 --segdur 4'</span></code></pre>
+
+  <h3>File map</h3>
+  <table>
+    <tr><th>File</th><th>Library</th><th>Responsibility</th></tr>
+    <tr><td><code>include/sxr_recorder.h</code></td><td>recorder</td><td>Public API header (the only header an app needs to include)</td></tr>
+    <tr><td><code>sxr_recorder.c</code></td><td>recorder</td><td>v3 vtable implementation: init/start/stop/<b>rotate</b>/deinit + async preview dispatch</td></tr>
+    <tr><td><code>mi_record.cpp</code></td><td>recorder</td><td>Record-segment state machine: sink open, fMP4/metainfo writes, moov write-back</td></tr>
+    <tr><td><code>FMP4Writer.cpp</code></td><td>recorder</td><td>ISO BMFF muxer</td></tr>
+    <tr><td><code>sensor_csv.cpp</code></td><td>recorder</td><td>Sensor CSV output + latest-value cache</td></tr>
+    <tr><td><code>calib_json.cpp</code></td><td>recorder</td><td>camera_params.json / imu_calibration.json serialization</td></tr>
+    <tr><td><code>hal_loader.cpp</code></td><td>recorder</td><td>dlopen <code>libsxr_hal.so</code> (RTLD_GLOBAL)</td></tr>
+    <tr><td><code>sxr_hal.h / sxr_pipeline_core.cpp / ...</code></td><td>HAL</td><td>MI pipeline / sensors / calibration / UUID / audio (internal implementation, not covered here)</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <div class="ico">⚠️</div>
+    <div class="body">
+      <p><b>Deploy only recorder + app.</b> <code>libsxr_hal.so</code> is integrated in the ROM, packaged with the firmware; developers never need to touch it.
+      Deploy the recorder to <code>/customer/sd/</code> (SD-card mount, persists across reboots), which takes precedence over the ROM's <code>/customer/sample_code/lib/</code>.
+      HAL/recorder version pairing is guaranteed by ROM packaging; the two must be updated from the same source.</p>
+      <p><b>Switching across apps requires a reboot.</b> The same SDK app can run repeatedly; when switching between it and the reference demo <code>prog_pipeline</code>,
+      the other side's VENC channels are not fully released and <code>MI_VENC_CreateChn</code> fails (<code>0xa0022004</code>).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PART II BAND ===== -->
+<section id="ds-part" style="border:0;padding:52px 0 0">
+  <div class="part-band g">
+    <div class="pt">Part II · Dataset Structure &amp; Formats</div>
+    <h2>Recorded Dataset</h2>
+    <p>File structure and field semantics of the recording output (clip_NNN/) — video / sensors / audio / calibration / alignment &amp; conversion.</p>
+  </div>
+</section>
+
+<!-- ===== DS OVERVIEW ===== -->
+<section id="ds-overview">
+  <h2 class="base">Overview</h2>
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p><b>Key fact:</b> the on-disk physical timestamps (video exposure <code>exposure_start_utc_ns</code>, IMU <code>ts_utc_ns</code>, audio <code>ts_utc_ns</code>) are uniformly
+      <code>CLOCK_REALTIME</code> nanoseconds — i.e. Unix-epoch wall-clock time, directly alignable with wall-clock data from other devices.
+      Only the <code>pts_us</code> columns stay on <code>CLOCK_MONOTONIC_RAW</code> (µs), as the join key to the mp4 sample timeline. For converting between the two domains see
+      <a href="#ds-align">Time Alignment &amp; Conversion</a>.</p>
+    </div>
+  </div>
+  <table>
+    <tr><th>Recording parameters (defaults)</th><th>Value</th></tr>
+    <tr><td>Video resolution</td><td><code>1600 × 1200</code> (auto-detected by sensor model)</td></tr>
+    <tr><td>Video codec</td><td>HEVC (H.265) Main, IP-only (no B-frames), GOP=30, CBR <b>4 Mbps</b></td></tr>
+    <tr><td>Sub-stream (preview, not in the dataset)</td><td>main/4 size, 2 Mbps, 15 fps</td></tr>
+    <tr><td>Accel / gyro / mag sample rates</td><td>800 / 800 / 200 Hz</td></tr>
+    <tr><td>Audio</td><td>16 kHz, 2 ch, S16_LE</td></tr>
+  </table>
+</section>
+
+<!-- ===== DS TREE ===== -->
+<section id="ds-tree">
+  <h2 class="base">Directory Structure</h2>
+  <p>One <code>clip_NNN/</code> per segment (<code>NNN</code> starts at <code>001</code>, zero-padded to three digits). Stereo is <code>Camera0</code> (left eye) + <code>Camera1</code> (right eye).</p>
+  <pre class="tree"><span class="d">&lt;output&gt;/                         # default /customer/sd/fmp4_recorder</span>
+└── clip_001/                      # artifacts of one recording segment
+    ├── <span class="base">id.txt</span>                     <span class="d"># hardware UUID (plain text)</span>
+    ├── <span class="cam">Camera0</span>/                     <span class="d"># left eye</span>
+    │   ├── <span class="cam">video.mp4</span>                <span class="d"># HEVC fMP4</span>
+    │   ├── <span class="cam">metainfo.csv</span>             <span class="d"># per-frame exposure metadata</span>
+    │   └── <span class="cam">camera_params.json</span>       <span class="d"># intrinsics + extrinsics</span>
+    ├── <span class="cam">Camera1</span>/                     <span class="d"># right eye (same layout as Camera0)</span>
+    │   ├── video.mp4
+    │   ├── metainfo.csv
+    │   └── camera_params.json
+    ├── <span class="sensor">Sensors</span>/
+    │   ├── <span class="sensor">accel.csv</span>              <span class="d"># accelerometer</span>
+    │   ├── <span class="sensor">gyro.csv</span>               <span class="d"># gyroscope</span>
+    │   ├── <span class="sensor">mag.csv</span>                <span class="d"># magnetometer</span>
+    │   └── <span class="sensor">imu_calibration.json</span>  <span class="d"># IMU calibration</span>
+    └── <span class="audio">Audio</span>/                      <span class="d"># optional: the whole directory is absent if there is no microphone</span>
+        ├── <span class="audio">audio.mp4</span>              <span class="d"># PCM fMP4</span>
+        └── <span class="audio">metainfo.csv</span>
+</pre>
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p>Each <code>clip_NNN/</code> is one complete, independent recording segment; the files within it are self-consistent and segments do not affect each other.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DS TIME ===== -->
+<section id="ds-time">
+  <h2 class="base">Time Bases</h2>
+  <p>On-disk physical timestamps are uniformly <b><code>CLOCK_REALTIME</code> nanoseconds</b> (Unix-epoch wall clock); the capture chain internally stays on
+  <code>CLOCK_MONOTONIC_RAW</code> (immune to NTP adjustments) and is converted once via the in-library UTC bridge only when files are written. Division of labor between the two domains:</p>
+  <table>
+    <tr><th>Timestamp</th><th>Clock domain</th><th>Meaning</th></tr>
+    <tr><td><code>exposure_start_utc_ns</code> (Camera metainfo)</td><td>CLOCK_REALTIME</td><td>physical exposure start of that frame (wall clock, convertible to a date directly)</td></tr>
+    <tr><td><code>ts_utc_ns</code> (accel/gyro/mag)</td><td>CLOCK_REALTIME</td><td>per-sample timestamp</td></tr>
+    <tr><td><code>ts_utc_ns</code> (Audio metainfo)</td><td>CLOCK_REALTIME</td><td>capture time of that PCM period</td></tr>
+    <tr><td><code>pts_us</code> (video/audio metainfo)</td><td>PTS µs · MONOTONIC_RAW value</td><td>join key to the mp4 sample timeline (same source as tfdt), used for row↔sample pairing; <b>not</b> wall clock</td></tr>
+  </table>
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p><b>UTC bridge precision:</b> the offset is seeded at the start of each record segment; afterwards, any conversion thread that finds the cached offset stale (&gt;200 ms) re-samples it inline —
+      no dedicated sampling thread, no sidecar file. With NTP slew ≤500 ppm the worst-case error is ≤0.1 ms; if an NTP step happens mid-recording,
+      timestamps on either side of the step are each locally correct.</p>
+      <p><b>Note:</b> on a bare device (no RTC/NTP), CLOCK_REALTIME counts from power-on and tracks MONOTONIC_RAW —
+      there, <code>*_utc_ns</code> values that look like seconds-since-boot are normal; after time sync, recordings return to true epoch time.</p>
+    </div>
+  </div>
+  <div class="callout warn">
+    <div class="ico">⚠️</div>
+    <div class="body">
+      <p>Do <b>not</b> run <code>date -d</code> on <code>pts_us</code> — that is a monotonic-clock value (magnitude ~1e11–1e12 when expressed in ns),
+      not epoch seconds; it exists only for pairing with mp4 sample PTSs. The <code>*_utc_ns</code> columns are the wall clock.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DS CAMERA ===== -->
+<section id="ds-camera">
+  <h2 class="cam">Video &amp; Metadata (Camera{0,1})</h2>
+
+  <h3>video.mp4 — HEVC fMP4</h3>
+  <p>Fragmented MP4 (ISO BMFF).</p>
+  <ul>
+    <li><b>Container structure:</b> <code>ftyp + moov</code> (up front; finalized at recording end with the actual frame count/duration) + one <code>styp + moof + mdat</code> fragment per GOP.</li>
+    <li><b>Codec:</b> HEVC Main profile, <b>IP-only (no B-frames)</b>, guaranteeing monotonic PTS. The first IDR's VPS/SPS/PPS are assembled into <code>hvcC</code> written into <code>moov</code>.</li>
+    <li><b>Fragment boundaries:</b> on I-frame boundaries, one fragment per GOP.</li>
+  </ul>
+
+  <h3>metainfo.csv — per-frame exposure metadata</h3>
+  <p>One row per encoded frame.</p>
+  <pre><code><span class="c-c"># header</span>
+pts_us(exp_end),exposure_start_utc_ns,exposure_duration_ns,gain</code></pre>
+  <table>
+    <tr><th>Column</th><th>Unit</th><th>Description</th></tr>
+    <tr><td><code>pts_us(exp_end)</code></td><td>µs</td><td>Video PTS (exposure <b>end</b> time). Used to pair the mp4 sample with this row (mp4 sample PTS = this value).</td></tr>
+    <tr><td><code>exposure_start_utc_ns</code></td><td>ns · CLOCK_REALTIME</td><td>Physical exposure start of the frame (absolute wall-clock time; use this for pairing / stereo alignment).</td></tr>
+    <tr><td><code>exposure_duration_ns</code></td><td>ns</td><td>Exposure duration.</td></tr>
+    <tr><td><code>gain</code></td><td>—</td><td>AE gain.</td></tr>
+  </table>
+  <div class="callout ok">
+    <div class="ico">✓</div>
+    <div class="body">
+      <p><b>Stereo alignment:</b> <b>row 0 of Camera0 and Camera1 metainfo = the same physical exposure</b>, and the first mp4 samples of both streams are also the same frame.</p>
+    </div>
+  </div>
+
+  <h3>camera_params.json — intrinsics + extrinsics</h3>
+  <p>Single-element <code>cameras</code> array (this eye only).</p>
+  <pre><code>{
+  "group": "tracking",
+  "cameras": [
+    {
+      "eye": "&lt;eye_name&gt;",
+      "width": 1600,
+      "height": 1200,
+      "intrinsics": {
+        "focalX": &lt;double&gt;, "focalY": &lt;double&gt;,
+        "centerX": &lt;double&gt;, "centerY": &lt;double&gt;,
+        "radialDistortion": [k1, k2, k3, k4, k5, k6, k7, k8]
+      },
+      "extrinsics": {
+        "position": [x, y, z],
+        "rotation": [qx, qy, qz, qw]          <span class="c-c">// quaternion</span>
+      }
+    }
+  ]
+}</code></pre>
+  <h4>Field descriptions</h4>
+  <table>
+    <tr><th>Field</th><th>Meaning / unit</th></tr>
+    <tr><td><code>eye</code></td><td>Eye identifier (<code>"left"</code> / <code>"right"</code>).</td></tr>
+    <tr><td><code>width</code> · <code>height</code></td><td>Image resolution (pixels); native sensor size, unscaled (currently <code>1600×1200</code>).</td></tr>
+    <tr><td><code>intrinsics.focalX</code> · <code>focalY</code></td><td>Focal length along x / y (pixels).</td></tr>
+    <tr><td><code>intrinsics.centerX</code> · <code>centerY</code></td><td>Principal point (intersection of the optical axis with the image plane) coordinates (pixels).</td></tr>
+    <tr><td><code>intrinsics.radialDistortion[8]</code></td><td>Lens distortion coefficients (dimensionless); the first 6 come from device calibration, the last 2 (tangential) are 0.</td></tr>
+    <tr><td><code>extrinsics.position[3]</code></td><td>Camera translation relative to the reference origin (SVR coordinate frame) <code>[x,y,z]</code> (units follow the calibration convention, typically meters).</td></tr>
+    <tr><td><code>extrinsics.rotation[4]</code></td><td>Camera orientation quaternion <code>[x,y,z,w]</code> (unit quaternion, SVR coordinate frame).</td></tr>
+  </table>
+
+  <h4>About the extrinsics</h4>
+  <p><code>extrinsics</code> describes the camera pose relative to the reference origin — the <b>Tbc (camera → body) in the SVR coordinate frame</b>: <code>position</code> is the translation, <code>rotation</code> the orientation unit quaternion (<code>[x,y,z,w]</code>). Downstream can use it directly as the camera pose.</p>
+
+  <h4>Distortion model in detail (radialDistortion)</h4>
+  <p>This field describes the lens's geometric distortion. Device calibration declares the model as <code>FISHEYE_4_PARAMETERS</code> — a <b>4-parameter fisheye radial distortion model</b>. Of the 8-element array, <b>only the first 4 entries are valid; the rest are 0</b> (no tangential distortion terms).</p>
+  <table>
+    <tr><th>Index</th><th>Source</th><th>Meaning</th></tr>
+    <tr><td><code>[0..3]</code> = k1, k2, k3, k4</td><td>4 coefficients from calibration</td><td>fisheye distortion coefficients (only these 4 are valid)</td></tr>
+    <tr><td><code>[4..5]</code></td><td>Reserved slots</td><td>always 0, unused</td></tr>
+    <tr><td><code>[6..7]</code></td><td>Padding</td><td>always 0, filler to reach 8 elements, unused</td></tr>
+  </table>
+  <p><b>Basic model:</b> ideal pinhole projection gives normalized image coordinates <code>(x, y)</code>; the radius from the principal point is <code>r = √(x² + y²)</code>, corresponding to an incidence angle <code>θ = atan(r)</code> between the incoming ray and the optical axis. Fisheye lenses bend wide-angle rays strongly, so coefficients correct the mapping of <code>θ</code> (radius). The 4-parameter fisheye model typically takes the Kannala-Brandt form:</p>
+  <pre><code>θ_d = θ · (1 + k1·θ² + k2·θ⁴ + k3·θ⁶ + k4·θ⁸)
+
+<span class="c-c"># θ   = atan(r)          incidence angle for the normalized radius (under pinhole/equidistant projection)</span>
+<span class="c-c"># θ_d                    distorted equivalent angle → projected onto the image plane gives the actual pixel position</span>
+<span class="c-c"># k1..k4                  the 4 distortion coefficients (radialDistortion[0..3])</span></code></pre>
+  <p><b>Parameter meanings:</b></p>
+  <ul>
+    <li><code>k1</code>: the dominant term; sets the overall direction and magnitude of the radial bending; <code>|k1|</code> is usually far larger than the higher-order terms.</li>
+    <li><code>k2, k3, k4</code>: higher-order correction terms, mainly affecting large angles (image periphery).</li>
+    <li>The smaller the coefficients, the closer to an ideal pinhole/equidistant projection; on this device they are on the order of <code>1e-3 ~ 1e-2</code>.</li>
+  </ul>
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p>The distortion coefficients are factory calibration values and are <b>passed through as-is in this dataset — no undistortion is applied</b>. Downstream must apply k1..k4 per the <code>FISHEYE_4_PARAMETERS</code> model; the formula above is the typical (Kannala-Brandt) form of a 4-parameter fisheye model — for the vendor's exact polynomial convention, defer to their calibration specification.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DS SENSORS ===== -->
+<section id="ds-sensors">
+  <h2 class="sensor">Sensors (Sensors/)</h2>
+  <p>During recording, every sample is appended row by row to the corresponding CSV. <b>All <code>ts_utc_ns</code> values are CLOCK_REALTIME (converted via the UTC bridge before writing).</b></p>
+
+  <table>
+    <tr><th>File</th><th>Header</th><th>Units</th><th>Frame</th></tr>
+    <tr><td><code>accel.csv</code></td><td><code>ts_utc_ns,ax,ay,az</code></td><td>m/s²</td><td>body</td></tr>
+    <tr><td><code>gyro.csv</code></td><td><code>ts_utc_ns,gx,gy,gz</code></td><td>rad/s</td><td>body</td></tr>
+    <tr><td><code>mag.csv</code></td><td><code>ts_utc_ns,mx,my,mz</code></td><td>µT</td><td>—</td></tr>
+  </table>
+
+  <h4>IMU coordinate frame (body frame, right-handed)</h4>
+  <p>Accel / gyro / mag values are all in the device body frame, defined as follows:</p>
+  <ul>
+    <li><b>+x</b>: points to the device's right</li>
+    <li><b>+y</b>: points up</li>
+    <li><b>+z</b>: points behind the device (away from the lens / recording direction, toward the holder)</li>
+    <li>Right-handed: <code>+x × +y = +z</code>; the lens faces <code>−z</code> (i.e. the recording / field-of-view direction).</li>
+  </ul>
+  <pre class="tree">                +y (up)
+                 │
+                 │
+                 │
+                 ●──────────→ +x (right)
+                ╱
+              ╱
+            +z (back, toward holder)
+
+      lens faces −z (recording direction)</pre>
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p>Accelerometer readings <b>include the gravity component</b>: with the device level and the lens pointing forward, <code>ay ≈ +9.8 m/s²</code>, <code>ax ≈ az ≈ 0</code> (matching the example on this page). Positive gyro angular rates follow the right-hand rule (thumb along the +axis; the curled fingers give the positive direction).</p>
+      <p>The CSV columns are already physical quantities (units in the table); no further rescaling is needed.</p>
+      <p>Each record segment reopens its files with truncation (header + data are self-consistent within the segment); nothing is appended across segments.</p>
+    </div>
+  </div>
+
+  <h3>imu_calibration.json — IMU calibration</h3>
+  <p><code>device_uid</code> = hardware UUID.</p>
+  <pre><code>{
+  "device_uid": "&lt;uuid&gt;",
+  "imu": {
+    "imu_id": &lt;int&gt;, "is_primary": &lt;bool&gt;,
+    "bias": {
+      "accelerometer_mps2": [x, y, z], "gyroscope_rads": [x, y, z]
+    },
+    "scale_factor": { "accelerometer": [...], "gyroscope": [...] },
+    "nonorthogonality": { "accelerometer": [...], "gyroscope": [...] },
+    "time_alignment_s": {
+      "imu_to_pose": &lt;double&gt;,
+      "cameras": { "&lt;eye&gt;": &lt;delta_s&gt;, ... },
+      "accel": &lt;double&gt;
+    }
+  },
+  "noise": {
+    "accel_noise_std_mps2": [...], "gyro_noise_std_rads": [...],
+    "accel_bias_std_mps2": [...], "gyro_bias_std_rads": [...]
+  }
+}</code></pre>
+  <h4>Field descriptions</h4>
+  <table>
+    <tr><th>Field</th><th>Meaning / unit</th></tr>
+    <tr><td><code>device_uid</code></td><td>Device hardware UUID.</td></tr>
+    <tr><td><code>imu.imu_id</code></td><td>IMU index.</td></tr>
+    <tr><td><code>imu.is_primary</code></td><td>Whether this is the primary IMU.</td></tr>
+    <tr><td><code>imu.bias.accelerometer_mps2[3]</code></td><td>Accelerometer bias (zero-G offset) <code>[x,y,z]</code> (m/s²).</td></tr>
+    <tr><td><code>imu.bias.gyroscope_rads[3]</code></td><td>Gyroscope bias (zero-rate offset) <code>[x,y,z]</code> (rad/s).</td></tr>
+    <tr><td><code>imu.scale_factor.accelerometer[3]</code></td><td>Per-axis accelerometer sensitivity calibration coefficients (dimensionless multipliers).</td></tr>
+    <tr><td><code>imu.scale_factor.gyroscope[3]</code></td><td>Per-axis gyroscope sensitivity calibration coefficients (dimensionless multipliers).</td></tr>
+    <tr><td><code>imu.nonorthogonality.accelerometer[3]</code></td><td>Accelerometer axis non-orthogonality / misalignment correction (dimensionless).</td></tr>
+    <tr><td><code>imu.nonorthogonality.gyroscope[3]</code></td><td>Gyroscope axis non-orthogonality / misalignment correction (dimensionless).</td></tr>
+    <tr><td><code>imu.time_alignment_s.imu_to_pose</code></td><td>IMU → pose time-alignment offset (s).</td></tr>
+    <tr><td><code>imu.time_alignment_s.cameras</code></td><td>Per-camera time-alignment offset relative to the IMU (s), keyed by eye name.</td></tr>
+    <tr><td><code>imu.time_alignment_s.accel</code></td><td>Accelerometer time-alignment offset (s).</td></tr>
+    <tr><td><code>imu.noise.accel_noise_std_mps2[3]</code></td><td>Accelerometer measurement white-noise standard deviation (m/s²).</td></tr>
+    <tr><td><code>imu.noise.gyro_noise_std_rads[3]</code></td><td>Gyroscope measurement white-noise standard deviation (rad/s).</td></tr>
+    <tr><td><code>imu.noise.accel_bias_std_mps2[3]</code></td><td>Accelerometer bias instability / random-walk standard deviation (m/s²).</td></tr>
+    <tr><td><code>imu.noise.gyro_bias_std_rads[3]</code></td><td>Gyroscope bias instability / random-walk standard deviation (rad/s).</td></tr>
+  </table>
+  <p class="meta">All values above are factory calibration values.</p>
+
+  <h4>Using nonorthogonality</h4>
+  <p><b>First, be clear: are the CSV values already corrected?</b> The dataset's <code>accel.csv</code> / <code>gyro.csv</code> have only gone through <b>FSR range scaling + the mounting-orientation matrix</b> (chip frame → body frame); the <code>bias</code> / <code>scale_factor</code> / <code>nonorthogonality</code> from <code>imu_calibration.json</code> are <b>not</b> applied. Those three are factory precision-calibration parameters, left for downstream to apply as needed.</p>
+  <p><b>What nonorthogonality corrects:</b> the IMU's three axes are not exactly orthogonal due to manufacturing tolerances (angles ≠ 90°), causing <b>inter-axis crosstalk</b> — true acceleration/angular rate on one axis leaks a little into the other two. These parameters exist to remove that coupling; the closer to 0, the better the orthogonality.</p>
+  <p><b>How to use:</b> after reading the CSV values, correct in the order bias → scale → nonorth; the final step uses the 3×3 matrix built from the nonorthogonality terms to decouple the axes:</p>
+<pre><code>v_true ≈ N⁻¹ · ( (v_csv − bias) ⊘ scale )      <span class="c-c"># ⊘ element-wise division</span>
+
+<span class="c-c"># Typical 3-parameter → 3×3 non-orthogonal coupling matrix (lower-triangular, small-angle approximation):</span>
+N = ⎡ 1       0       0    ⎤
+    ⎢ n_yx    1       0    ⎥
+    ⎣ n_zx    n_zy    1    ⎦
+<span class="c-c"># n_yx: the y axis's skew angle relative to the x axis, and so on. A skew (antisymmetric) form may also be used.</span></code></pre>
+  <ul>
+    <li><b>Order</b>: remove the bias first, then calibrate sensitivity (scale), and finally decouple the axes (nonorth).</li>
+    <li><b>accel / gyro each have their own set</b>: <code>nonorthogonality.accelerometer</code> and <code>.gyroscope</code> are independent of each other and apply to their respective streams.</li>
+    <li><b>Magnitude &amp; trade-offs</b>: of the three corrections, bias usually matters most, scale next, nonorth least. General attitude/logging applications can ignore nonorth; high-precision VIO / SLAM should apply it.</li>
+  </ul>
+  <div class="callout warn">
+    <div class="ico">⚠️</div>
+    <div class="body">
+      <p>This dataset <b>passes factory calibration values through as-is</b>, with none of the above corrections applied. The exact form of the 3-parameters-to-3×3 matrix (lower-triangular / skew, whether to multiply N or N⁻¹, whether scale is a multiplier or a divisor) follows the device calibration specification (<code>tracking</code> group); confirm the convention with the vendor before use.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DS AUDIO ===== -->
+<section id="ds-audio">
+  <h2 class="audio">Audio (Audio/, optional)</h2>
+  <p>Generated only when a microphone is present; with no mic, or if it fails to open, the segment simply has no audio (non-fatal).</p>
+  <h3>audio.mp4 — PCM fMP4</h3>
+  <p>S16_LE interleaved, 16 kHz, 2 ch; track timescale = sample rate.</p>
+  <h3>metainfo.csv</h3>
+  <pre><code>pts_us,ts_utc_ns,samples</code></pre>
+  <table>
+    <tr><th>Column</th><th>Unit</th><th>Description</th></tr>
+    <tr><td><code>pts_us</code></td><td>µs</td><td>Audio PTS (that PCM period, MONOTONIC_RAW value; the audio.mp4 join key).</td></tr>
+    <tr><td><code>ts_utc_ns</code></td><td>ns · CLOCK_REALTIME</td><td>Capture time of that period (same domain as video/IMU).</td></tr>
+    <tr><td><code>samples</code></td><td>frames</td><td>PCM frame count in this period.</td></tr>
+  </table>
+</section>
+
+<!-- ===== DS UTC ===== -->
+<section id="ds-utcsync">
+  <h2 class="utc">UTC &amp; Timestamp Domains</h2>
+  <p>The device internally (the capture chain) runs on <code>CLOCK_MONOTONIC_RAW</code> — monotonic and NTP-immune; the on-disk physical timestamps are converted to <code>CLOCK_REALTIME</code> at the moment of writing via the in-library
+  <b>UTC bridge</b>, so what you see in the dataset is wall-clock time. How the bridge works:</p>
+  <ul>
+    <li><b>Seeding:</b> at the start of each record segment, a triple bracketed clock read (mono₁ → realtime → mono₂, midpoint taken) yields
+        <code>offset = utc − mono</code>.</li>
+    <li><b>Self-refresh:</b> all conversions happen on normal-priority writer threads; whenever a thread finds the cached offset stale (&gt;200 ms) it re-samples under the mutex.
+        No dedicated sampling thread.</li>
+    <li><b>Error bound:</b> NTP slew ≤500 ppm × 200 ms staleness ⇒ worst case ≤0.1 ms; an NTP <b>step</b> falling between two conversions
+        leaves the timestamps on each side locally correct.</li>
+  </ul>
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p>Older versions carried this mapping in the sidecar file <code>sensor_time_to_utc.csv</code> (1 Hz samples); it has been removed —
+      the dataset's own per-frame <code>pts_us ↔ exposure_start_utc_ns</code> pairs are the densest mapping samples,
+      and the monotonic domain can be reconstructed from them on demand (see <a href="#ds-align">Time Alignment &amp; Conversion</a>).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DS CALIB ===== -->
+<section id="ds-calib">
+  <h2 class="calib">Calibration &amp; Device ID</h2>
+  <h3>id.txt</h3>
+  <p>Plain text: the hardware UUID + a newline.</p>
+  <h3>Calibration source</h3>
+  <p>All calibration values are read from the device and serialized to JSON. <b>Failures are all non-fatal</b>: a camera-calibration failure skips that JSON; an IMU/UUID failure leaves the corresponding fields empty or the file ungenerated, but recording is never blocked.</p>
+  <div class="callout warn">
+    <div class="ico">⚠️</div>
+    <div class="body">
+      <p><b>Note:</b> the calibration JSON's camera resolution matches <code>video.mp4</code> (currently <code>1600×1200</code>); if the device-configured resolution changes, the two change together.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DS ALIGN ===== -->
+<section id="ds-align">
+  <h2 class="base">Time Alignment &amp; Conversion</h2>
+  <h3>1. Cross-stream alignment (same domain, direct subtraction)</h3>
+  <p>Video <code>exposure_start_utc_ns</code>, IMU/mag <code>ts_utc_ns</code>, and audio <code>ts_utc_ns</code> are all
+  CLOCK_REALTIME nanoseconds — <b>subtract them directly to get time deltas</b>, no mapping file needed; for stereo pairing, use nearest-neighbor matching of the two streams'
+  <code>exposure_start_utc_ns</code> (first frames are already aligned to the same physical exposure).</p>
+  <h3>2. Video ↔ metainfo pairing</h3>
+  <p>An mp4 sample's PTS (µs) = that metainfo row's <code>pts_us</code> (row order = frame order). To get the frame's wall-clock time,
+  read <code>exposure_start_utc_ns</code> from the same row.</p>
+  <h3>3. MONOTONIC_RAW values ↔ UTC</h3>
+  <p><code>pts_us</code> and the runtime cache (<code>sxr_imu_sample_t.ts_ns</code>) stay in the monotonic domain. To convert monotonic values to
+  UTC, the dataset itself carries one pair of samples per frame:</p>
+  <pre><code>(mono_ns, utc_ns) = (pts_us × 1000 − exposure_duration_ns, exposure_start_utc_ns)</code></pre>
+  <p>Piecewise-linear interpolation over this pair sequence rebuilds a mono→utc mapping of arbitrary precision (<code>tools/dataset_align_check.py</code>
+  does exactly this); equivalently, utc(mono) ≈ mono + offset, where the offset drifts between adjacent frames only from NTP slew.</p>
+</section>
+
+<!-- ===== DS EXAMPLE ===== -->
+<section id="ds-example">
+  <h2 class="base">Complete Example</h2>
+  <p>With the device wall clock synced (≈ <code>2026-08-10 15:00 UTC</code>), one segment is recorded. The numbers below are illustrative only.</p>
+  <pre class="tree">clip_001/
+├── id.txt                       <span class="d"># "A1B2C3D4-...\n"</span>
+├── Camera0/{video.mp4, metainfo.csv, camera_params.json}
+├── Camera1/{video.mp4, metainfo.csv, camera_params.json}
+├── Sensors/{accel.csv, gyro.csv, mag.csv, imu_calibration.json}
+└── Audio/{audio.mp4, metainfo.csv}</pre>
+  <pre><code><span class="c-c"># Camera0/metainfo.csv   (~30fps → row interval ~33.3ms)</span>
+pts_us(exp_end),exposure_start_utc_ns,exposure_duration_ns,gain
+6231456,1786373999999956000,12480,1024
+6264789,1786374000033289333,12480,1024
+
+<span class="c-c"># Sensors/accel.csv  (800 Hz → row interval ~1.25ms)</span>
+ts_utc_ns,ax,ay,az
+1786374000000000000,0.123,9.806,-0.045
+1786374000001250000,0.121,9.809,-0.044
+
+<span class="c-c"># Sanity check: first-frame exposure and first IMU sample share the domain — subtract directly:</span>
+<span class="c-c"># 1786374000000000000 − 1786373999999956000 = 44000 ns ≈ 44 µs (nearest-neighbor distance within tolerance) ✓</span>
+<span class="c-c"># The first row's exposure_start_utc_ns converts to a date: date -d @1786373999.9999956 ≈ 2026-08-10 14:59:59.999995600 UTC</span></code></pre>
+</section>
+
+</div><!-- /content -->
+</div><!-- /layout -->
+</body>
+</html>

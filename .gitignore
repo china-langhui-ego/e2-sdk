@@ -1,0 +1,30 @@
+# 构建产物
+build/
+out/
+*.o
+*.obj
+*.a
+*.d
+
+# Android / Gradle
+.gradle/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# macOS
+.DS_Store
+._*
+.AppleDouble
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# 日志与临时
+*.log
+*.tmp

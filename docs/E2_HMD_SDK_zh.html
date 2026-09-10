@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E2_HMD_SDK — 使用流程与数据格式</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#161b22; --panel2:#1c2129; --border:#2a313c;
+    --text:#c9d1d9; --muted:#8b949e; --dim:#6e7681;
+    --c-pipe:#58a6ff; --c-grab:#f0883e; --c-fmp4:#3fb950;
+    --c-sensor:#bc8cff; --c-util:#d2a8ff;
+    --c-cam:#3fb950; --c-audio:#f0883e; --c-utc:#d2a8ff; --c-calib:#58a6ff; --c-base:#f0883e;
+    --warn:#f85149; --warn-bg:#3b1219;
+    --ok:#3fb950; --ok-bg:#0d2818;
+    --info:#79c0ff; --info-bg:#0c2740;
+    --code-bg:#0d1117; --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',Roboto,Helvetica,Arial,sans-serif;
+       font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--c-pipe);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  .layout{display:flex;min-height:100vh}
+  /* ---- sidebar ---- */
+  .nav{width:264px;flex:0 0 264px;background:var(--panel);border-right:1px solid var(--border);
+       position:sticky;top:0;height:100vh;overflow-y:auto;padding:22px 0}
+  .nav .brand{padding:0 22px 18px;border-bottom:1px solid var(--border);margin-bottom:14px}
+  .nav .brand .lib{font-family:var(--mono);font-size:15px;color:#fff;font-weight:600}
+  .nav .brand .sub{font-size:12px;color:var(--muted);margin-top:4px}
+  .nav .grp{padding:6px 22px 2px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim)}
+  .nav a{display:block;padding:6px 22px 6px 30px;color:var(--muted);font-size:14px;border-left:3px solid transparent}
+  .nav a:hover{background:var(--panel2);color:var(--text);text-decoration:none}
+  .nav a.l0{border-left-color:var(--c-pipe)}
+  .nav a.l1{border-left-color:var(--c-grab)}
+  .nav a.l2{border-left-color:var(--c-fmp4)}
+  .nav a.l3{border-left-color:var(--c-sensor)}
+  .nav a.l4{border-left-color:var(--c-util)}
+  .nav a.cam{border-left-color:var(--c-cam)}
+  .nav a.sensor{border-left-color:var(--c-sensor)}
+  .nav a.audio{border-left-color:var(--c-audio)}
+  .nav a.utc{border-left-color:var(--c-utc)}
+  .nav a.calib{border-left-color:var(--c-calib)}
+  .nav a.base{border-left-color:var(--c-base)}
+
+  /* ---- content ---- */
+  .content{flex:1;min-width:0;padding:0 56px 120px;max-width:1180px}
+  section{padding-top:46px;border-bottom:1px solid var(--border)}
+  section:last-child{border-bottom:0}
+  h1{font-size:32px;margin:0 0 6px;color:#fff;letter-spacing:-.01em}
+  h2{font-size:24px;margin:0 0 16px;color:#fff;border-left:4px solid var(--c-pipe);padding-left:12px}
+  h2.cam{border-left-color:var(--c-cam)} h2.sensor{border-left-color:var(--c-sensor)}
+  h2.audio{border-left-color:var(--c-audio)} h2.utc{border-left-color:var(--c-utc)}
+  h2.calib{border-left-color:var(--c-calib)} h2.base{border-left-color:var(--c-base)}
+  h3{font-size:18px;margin:30px 0 10px;color:#e6edf3}
+  h4{font-size:15px;margin:22px 0 8px;color:#e6edf3;font-weight:600}
+  p{margin:10px 0}
+  .lead{color:var(--muted);font-size:15px;margin-top:0}
+  code, .ic{font-family:var(--mono);font-size:.88em;background:var(--panel2);
+            padding:1px 6px;border-radius:5px;color:#e6b673;border:1px solid var(--border)}
+
+  /* ---- code ---- */
+  pre{background:var(--code-bg);border:1px solid var(--border);border-radius:10px;
+      padding:18px 20px;overflow-x:auto;margin:16px 0;font-size:13.5px;line-height:1.6}
+  pre code{background:none;border:0;padding:0;color:var(--text);font-size:inherit}
+  pre.tree{color:#9aa4b2}
+  pre.tree .d{color:#8b949e}
+  pre.tree .cam{color:var(--c-cam)} pre.tree .sensor{color:var(--c-sensor)}
+  pre.tree .audio{color:var(--c-audio)} pre.tree .utc{color:var(--c-utc)}
+  pre.tree .calib{color:var(--c-calib)} pre.tree .base{color:var(--c-base)}
+  .c-kw{color:#ff7b72}.c-fn{color:#d2a8ff}.c-str{color:#a5d6ff}.c-num{color:#79c0ff}
+  .c-typ{color:#ffa657}.c-com{color:#8b949e;font-style:italic}.c-mi{color:#7ee787}
+  .c-pp{color:#d2a8ff}
+  .c-k{color:#ff7b72}.c-s{color:#a5d6ff}.c-n{color:#79c0ff}.c-p{color:#d2a8ff}
+  .c-t{color:#ffa657}.c-c{color:#8b949e;font-style:italic}
+
+  /* ---- tables ---- */
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.5px}
+  th,td{text-align:left;padding:8px 12px;border:1px solid var(--border);vertical-align:top}
+  th{background:var(--panel2);color:#e6edf3;font-weight:600}
+  td code,.td-mono{font-family:var(--mono);font-size:12.5px;color:#e6b673;background:transparent;border:0;padding:0}
+  tr:nth-child(even) td{background:rgba(255,255,255,.015)}
+
+  /* ---- cards ---- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin:18px 0}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;border-top:3px solid var(--c-pipe)}
+  .card .n{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .card .t{font-size:16px;color:#fff;margin:4px 0 8px;font-weight:600}
+  .card .d{font-size:13px;color:var(--muted)}
+  .card.p{border-top-color:var(--c-pipe)}.card.g{border-top-color:var(--c-grab)}
+  .card.f{border-top-color:var(--c-fmp4)}.card.s{border-top-color:var(--c-sensor)}
+  .card.u{border-top-color:var(--c-util)}
+  a.card:hover{text-decoration:none;border-color:var(--c-pipe)}
+
+  /* ---- callouts ---- */
+  .callout{border-radius:10px;padding:14px 18px 14px 16px;margin:16px 0;border-left:4px solid;display:flex;gap:12px}
+  .callout .ico{flex:0 0 auto;font-size:18px;line-height:1.4}
+  .callout.warn{background:var(--warn-bg);border-color:var(--warn)}
+  .callout.ok{background:var(--ok-bg);border-color:var(--ok)}
+  .callout.info{background:var(--info-bg);border-color:var(--info)}
+  .callout .body{flex:1;min-width:0}
+  .callout .body p{margin:4px 0}
+  .callout b{color:#fff}
+
+  /* ---- flow diagrams ---- */
+  .flow{display:flex;align-items:stretch;flex-wrap:wrap;gap:0;margin:18px 0}
+  .step{flex:1 1 auto;min-width:92px;background:var(--panel2);border:1px solid var(--border);
+        border-radius:8px;padding:10px 8px;text-align:center;position:relative}
+  .step .s-no{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .step .s-nm{font-family:var(--mono);font-size:13px;color:#fff;margin-top:2px;word-break:break-word}
+  .step .s-desc{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.35}
+  .arr{flex:0 0 18px;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:18px}
+  .step.pipe{border-top:3px solid var(--c-pipe)}
+  .step.grab{border-top:3px solid var(--c-grab)}
+  .step.fmp4{border-top:3px solid var(--c-fmp4)}
+  .step.sens{border-top:3px solid var(--c-sensor)}
+  .step.util{border-top:3px solid var(--c-util)}
+  .step.warn{border-color:var(--warn);background:var(--warn-bg)}
+  .step.warn .s-nm{color:#ffb4a8}
+
+  /* pipe diagram (data path) */
+  .pipe-line{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:18px 0;
+             background:var(--code-bg);border:1px solid var(--border);border-radius:10px;padding:18px}
+  .node{font-family:var(--mono);font-size:13px;background:var(--panel2);border:1px solid var(--border);
+        border-radius:8px;padding:10px 14px;color:#fff;text-align:center;min-width:64px}
+  .node .lab{font-size:10px;color:var(--dim);display:block;margin-top:2px;font-family:-apple-system,sans-serif}
+  .node.sensor{border-color:#f0883e;color:#ffb380}
+  .node.vif{border-color:#bc8cff;color:#d6b3ff}
+  .node.isp{border-color:#58a6ff;color:#9ecbff}
+  .node.scl{border-color:#3fb950;color:#7ee787}
+  .node.venc{border-color:#d2a8ff;color:#e6c0ff}
+  .node.disk{border-color:#f85149;color:#ff9c96}
+  .pipe-arr{color:var(--dim);font-size:20px}
+
+  /* part divider band */
+  .part-band{margin:10px 0 6px;padding:26px 30px;border-radius:14px;
+             background:linear-gradient(135deg,#1c2129,#161b22);border:1px solid var(--border);border-left:5px solid var(--c-pipe)}
+  .part-band.g{border-left-color:var(--c-fmp4)}
+  .part-band .pt{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);font-family:var(--mono)}
+  .part-band h2{margin:8px 0 4px;color:#fff;font-size:24px;border:0;padding:0}
+  .part-band p{margin:4px 0 0;color:var(--muted);font-size:14px}
+
+  .badge{display:inline-block;font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:5px;border:1px solid var(--border);color:var(--muted);margin-left:6px}
+  .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:10px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);margin:0 6px 4px 0}
+  .tag.b{color:#9ecbff;border-color:#1f3a5f}.tag.o{color:#ffb380;border-color:#5a3a1f}
+  .tag.g{color:#7ee787;border-color:#1f4a2a}.tag.p{color:#d6b3ff;border-color:#3f2a5a}
+
+  .meta{color:var(--dim);font-size:13px}
+  hr{border:0;border-top:1px solid var(--border);margin:28px 0}
+  .toc-ref{color:var(--dim);font-size:12px}
+  .kbd{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:1px 6px}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- =========================== SIDEBAR =========================== -->
+<nav class="nav">
+  <div class="brand">
+    <div class="lib">E2_HMD_SDK</div>
+    <div class="sub">使用流程 + 数据集格式</div>
+  </div>
+  <div class="grp">Part I · API 使用流程</div>
+  <a href="#top">文档说明</a>
+  <a href="#overview">概览：两库分工与加载</a>
+  <a href="#workflow">最小工作流</a>
+  <a href="#api">API 详解</a>
+  <a href="#custom">自定义配置（HAL）</a>
+  <a href="#example">完整调用示例</a>
+  <a href="#build">编译与部署</a>
+  <div class="grp">Part II · 数据集结构与格式</div>
+  <a class="base" href="#ds-overview">概述</a>
+  <a class="base" href="#ds-tree">目录结构</a>
+  <a class="base" href="#ds-time">时间基准</a>
+  <a class="cam" href="#ds-camera">视频与元数据 (Camera)</a>
+  <a class="sensor" href="#ds-sensors">传感器 (Sensors)</a>
+  <a class="audio" href="#ds-audio">音频 (Audio)</a>
+  <a class="utc" href="#ds-utcsync">时间映射 (UTC)</a>
+  <a class="calib" href="#ds-calib">标定与设备 ID</a>
+  <a class="base" href="#ds-align">时间对齐与换算</a>
+  <a class="base" href="#ds-example">完整示例</a>
+</nav>
+
+<!-- =========================== CONTENT =========================== -->
+<div class="content">
+
+<!-- ===== TITLE ===== -->
+<section id="top" style="border:0;padding-top:48px">
+  <h1>E2 HMD SDK — 使用流程与数据格式</h1>
+  <p class="lead">立体相机录制 SDK 完整参考。文档由两部分组成：<b>第一部分</b>为录制 API 的
+  <span class="ic">使用流程</span>（两个 dlopen 加载的共享库 <code>libsxr_recorder.so</code> + <code>libsxr_hal.so</code>，重点讲怎么调用）；
+  <b>第二部分</b>为录制数据集（<span class="ic">clip_NNN/</span> 目录）的 <span class="ic">文件结构与格式</span>。</p>
+  <p class="meta">源码目录：<span class="ic">sdk/ego/libsxr_recorder/</span> + <span class="ic">sdk/ego/libsxr_hal/</span> ·
+     公共头文件：<span class="ic">include/sxr_recorder.h</span> + <span class="ic">sxr_hal.h</span> ·
+     系统默认 APP：<span class="ic">sdk/verify/sample_code/demo/sxrservice</span>（产物 <code>prog_sxrservice</code>，ROM 开机自动运行） ·
+     参考调用方：<span class="ic">fmp4_recorder/main.cpp</span>（产物 <code>prog_fmp4_recorder</code>，独立测试工具）</p>
+  <p class="meta">2026-08-22 更新：Part I 已按当前 <code>sxr_*</code> 双库 API 重写，仅保留 API 使用层面；
+     不展开 HAL 内部实现。</p>
+
+  <div class="cards">
+    <a class="card p" href="#api-part">
+      <div class="n">Part I</div><div class="t">API 使用流程</div>
+      <div class="d">两个库的分工与加载、最小工作流（init→start/stop→deinit）、事件/预览回调、自定义配置（HAL）、编译部署</div>
+    </a>
+    <a class="card f" href="#ds-part">
+      <div class="n">Part II</div><div class="t">数据集结构与格式</div>
+      <div class="d">录制产物的目录结构、各 CSV / JSON / MP4 字段语义、时间戳基准、UTC 映射与跨流对齐</div>
+    </a>
+  </div>
+</section>
+
+<!-- ===== PART I BAND ===== -->
+<section id="api-part" style="border:0;padding:52px 0 0">
+  <div class="part-band">
+    <div class="pt">Part I · SDK API 使用流程</div>
+    <h2>录制 API 使用</h2>
+    <p>两库分工与加载 / 最小工作流 / API 详解 / 自定义配置（HAL）/ 完整示例 / 编译与部署。</p>
+  </div>
+</section>
+
+<!-- ===== OVERVIEW ===== -->
+<section id="overview">
+  <h2>概览：两库分工与加载</h2>
+  <p>SDK 拆成<b>两个可 dlopen 的共享库</b>，各导出<b>单个符号</b>填充版本化 vtable。应用通常<b>只链接
+  <code>sxr_recorder.h</code></b>；HAL 由 recorder 在内部加载，应用一般感知不到。</p>
+
+  <div class="flow">
+    <div class="step pipe"><div class="s-no">系统默认 APP</div><div class="s-nm">prog_sxrservice</div>
+      <div class="s-desc">ROM 开机自动运行<br>经 recorder_bridge 调 record_* / imu_get_latest</div></div>
+    <div class="arr">→</div>
+    <div class="step pipe"><div class="s-no">dlopen</div><div class="s-nm">libsxr_recorder.so</div>
+      <div class="s-desc">录制会话（单例）<br>MI-free，不链接任何 libmi_*</div></div>
+    <div class="arr">→</div>
+    <div class="step pipe"><div class="s-no">内部再 dlopen</div><div class="s-nm">libsxr_hal.so</div>
+      <div class="s-desc">管线 / 传感器 / 标定 / 音频<br>MI 库经 RPATH /config/lib 自定位</div></div>
+  </div>
+
+  <table>
+    <tr><th></th><th>libsxr_recorder.so</th><th>libsxr_hal.so</th></tr>
+    <tr><td><b>定位</b></td><td>录制会话（公开 API 主入口）</td><td>硬件抽象：底层能力</td></tr>
+    <tr><td><b>职责</b></td><td>record 段管理、fMP4/metainfo/传感器 CSV 落盘、数据集生成</td><td>MI 管线、IMU/磁力计线程、标定、UUID、音频采集</td></tr>
+    <tr><td><b>公开头</b></td><td><code>include/sxr_recorder.h</code></td><td><code>sxr_hal.h</code>（recorder 内部经 hal_loader 使用）</td></tr>
+    <tr><td><b>导出</b></td><td><code>sxr_recorder_get_api()</code> → v2 vtable（5 槽）</td><td><code>sxr_hal_get_api()</code> → v3 vtable</td></tr>
+    <tr><td><b>MI 依赖</b></td><td>无（纯 C/C++ 运行时）</td><td>链接 <code>libmi_*</code> + CUS3A/ISPALGO</td></tr>
+    <tr><td><b>加载方式</b></td><td>应用 dlopen（<code>sxr_recorder_api()</code> 内联加载器）</td><td>recorder 内部 dlopen（<code>mi_hal()</code>，<code>RTLD_GLOBAL</code>）</td></tr>
+  </table>
+
+  <h4>加载路径</h4>
+  <ul>
+    <li><b>recorder</b>：<code>sxr_recorder.h</code> 内联加载器先试 <code>/customer/sd/libsxr_recorder.so</code>，再试 <code>/customer/sample_code/lib/</code>。找不到返回 NULL。</li>
+    <li><b>HAL</b>：<code>hal_loader.cpp</code> 先按裸名 <code>libsxr_hal.so</code>（需 <code>LD_LIBRARY_PATH</code>），再试 <code>/customer/sd/</code>、<code>/customer/sample_code/lib/</code>。<b>HAL 集成在 ROM</b>，开发者无需接触 / push，经 loader 兜底路径自动命中。</li>
+  </ul>
+
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p><b>HAL 必须 RTLD_GLOBAL 加载。</b> <code>libsxr_hal.so</code> 会拉入底层的 <code>libmi_*.so</code>，
+      它们在 app 直链时是全局作用域；若 <code>RTLD_LOCAL</code> dlopen，MI 库之间的符号互解会失败
+      （"can't resolve symbol"）。recorder 侧 MI-free，无符号冲突风险。</p>
+      <p><b>HAL 自带 <code>RPATH /config/lib</code></b>，其 MI 依赖（位于 <code>/config/lib</code>）自定位。
+      app 侧只需 <code>LD_LIBRARY_PATH=/customer/sd</code>（recorder + HAL 所在目录）。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== WORKFLOW ===== -->
+<section id="workflow">
+  <h2>最小工作流</h2>
+  <p>推荐用法：只用 <code>libsxr_recorder</code>，全部参数走库内默认。整个录制会话是<b>单例</b>：</p>
+
+  <div class="flow">
+    <div class="step pipe"><div class="s-no">①</div><div class="s-nm">record_init</div><div class="s-desc">建管线(默认配置)<br>起 IMU/磁线程<br>可选起预览回调</div></div><div class="arr">→</div>
+    <div class="step grab"><div class="s-no">②</div><div class="s-nm">record_start(dir)</div><div class="s-desc">异步开始一段<br>强制 IDR → STARTED</div></div><div class="arr">→</div>
+    <div class="step fmp4"><div class="s-no">③</div><div class="s-nm">录制…</div><div class="s-desc">落盘 Camera{0,1}/<br>Sensors/ + Audio/</div></div><div class="arr">→</div>
+    <div class="step grab"><div class="s-no">④</div><div class="s-nm">record_stop</div><div class="s-desc">关 video.mp4<br>(回写 moov) 收尾本段</div></div><div class="arr">→</div>
+    <div class="step pipe"><div class="s-no">⑤</div><div class="s-nm">record_deinit</div><div class="s-desc">finalize 残余段<br>停线程、拆管线</div></div>
+  </div>
+
+  <p>②~④ 可循环 <b>N 段</b>（每段独立 <code>clip_NNN/</code> 目录），无需重启管线。</p>
+
+  <div class="callout warn">
+    <div class="ico">⚠️</div>
+    <div class="body">
+      <p><b><code>record_start</code> 是异步的。</b> 返回 0 只代表已入队；真正开始落盘要等
+      <code>SXR_REC_EVT_STARTED</code> 事件（两眼都抓到强制 IDR 后派发）。不等就立即 <code>record_stop</code>
+      会得到空文件。<code>IDR_TIMEOUT</code> / <code>WRITE_ERROR</code> 事件会自动收尾本段。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== API ===== -->
+<section id="api">
+  <h2>API 详解</h2>
+
+  <h3>libsxr_recorder — 5 个 API（v2 vtable）</h3>
+  <table>
+    <tr><th>函数</th><th>作用</th><th>返回</th></tr>
+    <tr><td><code>record_init(preview_cb, userdata)</code></td>
+        <td>单例初始化：内部构建 stereo 管线 + 起 IMU/磁线程；给 <code>preview_cb</code> 则同时起子码流取帧。可反复 init/deinit</td>
+        <td>0 成功；−1 失败（未初始化）</td></tr>
+    <tr><td><code>record_deinit()</code></td>
+        <td>收尾：finalize 仍活动的录制段 → 停预览分发/传感器线程 → 拆管线。幂等</td>
+        <td>—</td></tr>
+    <tr><td><code>record_start(dir, evt_cb, userdata)</code></td>
+        <td>异步开始一段录制：建 <code>&lt;dir&gt;/Camera{0,1}/{video.mp4,metainfo.csv}</code> + Sensors CSV + Audio，强制 IDR 后发 <code>STARTED</code></td>
+        <td>0 入队成功；−1 失败（未 init / 已在录）</td></tr>
+    <tr><td><code>record_stop()</code></td>
+        <td>结束当前段：关 video.mp4（回写 moov）+ metainfo，停传感器 CSV。幂等</td>
+        <td>0 成功；−1 无活动段</td></tr>
+    <tr><td><code>imu_get_latest(&amp;sample)</code></td>
+        <td>O(1) 读最新 IMU/磁力值缓存（锁保护），填 <code>sxr_imu_sample_t</code></td>
+        <td>0 有数据；−1 无数据</td></tr>
+  </table>
+
+  <h4>record_init 内部默认配置（固定，不可通过 recorder 改）</h4>
+  <table>
+    <tr><th>项</th><th>默认值</th></tr>
+    <tr><td>相机</td><td>stereo（双路）：Camera0 左 + Camera1 右；实际以 HAL 探测的 <code>camera_mask</code> 为准（某 pad 无 sensor 则该路跳过）</td></tr>
+    <tr><td>分辨率</td><td>自动探测：HAL 按 pad0/pad2 挂载的 sensor 型号决定 —— SC235HGS = 1600×1200、SC233HGS = 1920×1200</td></tr>
+    <tr><td>主码流</td><td>HEVC Main，GOP=30，CBR 4 Mbps，IP-only（无 B 帧）</td></tr>
+    <tr><td>子码流（预览）</td><td>自动按主码流 /4：2 Mbps，15 fps（预览尺寸随 sensor，如 400×300 / 480×300；VENC ch1=Cam0 / ch3=Cam1）</td></tr>
+    <tr><td>IMU / 磁采样率</td><td>accel 800 Hz、gyro 800 Hz、mag 200 Hz</td></tr>
+    <tr><td>IQ</td><td>自动：按 sensor 型号选 <code>sc235hgs_api.bin</code> / <code>sc233hgs_api.bin</code></td></tr>
+    <tr><td>音频</td><td>16 kHz、2 ch、S16_LE（SDK 无音频编码器，PCM fMP4）</td></tr>
+    <tr><td>时钟</td><td>ISP 216 MHz、SCL 288 MHz（内部经 <code>/proc</code> 设置）</td></tr>
+  </table>
+
+  <h3>事件回调 <code>sxr_rec_event_cb_t</code></h3>
+  <pre><code><span class="c-kw">typedef enum</span> {
+    SXR_REC_EVT_STARTED,       <span class="c-com">// 两眼首帧 IDR 已写入，录制进行中</span>
+    SXR_REC_EVT_IDR_TIMEOUT,   <span class="c-com">// 强制 IDR 超时(默认 1s) → 自动收尾，无数据</span>
+    SXR_REC_EVT_WRITE_ERROR,   <span class="c-com">// 写失败 → 自动收尾，文件可能不完整</span>
+} <span class="c-typ">sxr_rec_evt_t</span>;
+<span class="c-kw">typedef void</span> (*<span class="c-typ">sxr_rec_event_cb_t</span>)(<span class="c-typ">sxr_rec_evt_t</span> evt, <span class="c-kw">int</span> error_code, <span class="c-kw">void</span> *userdata);</code></pre>
+
+  <div class="callout warn">
+    <div class="ico">⚠️</div>
+    <div class="body">
+      <p><b>事件回调跑在库内部线程。</b> 必须短小非阻塞；<b>禁止</b>在回调内调 <code>record_*</code>
+      （设 flag 回主循环处理）。错误事件只是撤回并标记本段 STOPPING，<code>record_stop</code> 对已 STOPPING 的段是幂等的，收尾仍由 app 调用。</p>
+    </div>
+  </div>
+
+  <h3>预览回调 <code>sxr_frame_cb_t</code>（可选）</h3>
+  <pre><code><span class="c-kw">typedef void</span> (*<span class="c-typ">sxr_frame_cb_t</span>)(<span class="c-kw">int</span> pipe_id, <span class="c-kw">int</span> ch,
+    <span class="c-kw">const uint8_t</span> *data, <span class="c-typ">size_t</span> size, <span class="c-typ">int64_t</span> pts_us, <span class="c-kw">int</span> is_sync,
+    <span class="c-kw">const uint8_t</span> *csd, <span class="c-typ">size_t</span> csd_size, <span class="c-kw">void</span> *userdata);</code></pre>
+  <ul>
+    <li>收到 <b>子码流</b>编码帧：<code>ch=1</code>（Cam0）、<code>ch=3</code>（Cam1）。预览期常驻、零落盘。</li>
+    <li>回调在库内部<b>分发线程</b>执行（HAL 取帧线程只入队），但仍是内部线程 —— 须快速返回；队列满时丢<b>最旧</b>帧保最新。</li>
+    <li>不传 <code>preview_cb</code> 则完全不启子码流取帧。</li>
+  </ul>
+
+  <h3>数据类型 <code>sxr_imu_sample_t</code></h3>
+  <pre><code><span class="c-kw">typedef struct</span> {
+    <span class="c-kw">double</span>  accel[3];   <span class="c-com">// m/s², body frame</span>
+    <span class="c-kw">double</span>  gyro[3];    <span class="c-com">// rad/s, body frame</span>
+    <span class="c-kw">double</span>  mag[3];     <span class="c-com">// μT</span>
+    <span class="c-typ">int64_t</span> ts_ns;      <span class="c-com">// CLOCK_MONOTONIC_RAW（与数据集 CSV 的 ts_ns 同域）</span>
+} <span class="c-typ">sxr_imu_sample_t</span>;</code></pre>
+
+  <h3>输出：数据集</h3>
+  <p>每段 <code>record_start(dir)</code> 在 <code>dir</code> 下生成一份完整数据集（视频/元数据/传感器/音频/标定/UTC 映射），
+  结构与字段详见 <a href="#ds-part">Part II</a>。</p>
+
+  <div class="callout ok">
+    <div class="ico">✓</div>
+    <div class="body">
+      <p><b>使用注意：</b>输出目录务必用 SD 卡（<code>/customer/sd/</code>），<code>/tmp</code> 是 tmpfs，写大文件会 OOM。
+      同应用可反复 init/start/stop/deinit 多次跑；跨应用（切到参考 demo <code>prog_pipeline</code>）需 <code>adb reboot</code>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CUSTOM (HAL) ===== -->
+<section id="custom">
+  <h2>自定义配置：直接用 libsxr_hal</h2>
+  <p><code>libsxr_recorder</code> 走固定默认参数。要改码率 / GOP / 预览 / 音频 / 时钟等，需绕过 recorder，
+  直接调用 <code>libsxr_hal</code>：<code>pipeline_create_venc(SxrPipelineConfig*)</code> 建管线 → 自建取帧/传感器，
+  自己写盘。recorder 加载的 <code>sxr_hal_api_t</code> vtable 如下。</p>
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p><b>结构体已简化。</b> <code>SxrPipelineConfig</code> 不再暴露 <code>camera_case</code> / pad / device /
+      <code>iq_path</code> / <code>output_dir</code>：sensor 探测、主码流分辨率、IQ bin 均由 HAL 自动按
+      pad0/pad2 挂载的 sensor 型号决定（SC235HGS=1600×1200、SC233HGS=1920×1200），结果回填到
+      <code>camera_mask / width[] / height[] / pts_offset_ns</code>。</p>
+    </div>
+  </div>
+
+  <h3>HAL vtable（v3，导出 <code>sxr_hal_get_api</code>）</h3>
+  <table>
+    <tr><th>组</th><th>函数</th><th>说明</th></tr>
+    <tr><td rowspan="5"><b>pipeline</b></td>
+        <td><code>pipeline_create_venc(&amp;cfg)</code></td><td>建 SENSOR→VIF→ISP→SCL→VENC 管线，返回 <code>pipe_id</code>（−1 失败）；自动探测 sensor，回填 <code>camera_mask / width[] / height[] / pts_offset_ns</code></td></tr>
+    <tr><td><code>pipeline_destroy(pipe_id)</code></td><td>逆序拆链，关内核 fd</td></tr>
+    <tr><td><code>framegrab_start(pipe_id, ch, cb, ud)</code></td><td>为子码流通道起取帧回调</td></tr>
+    <tr><td><code>set_main_frame_cb(pipe_id, ch, cb, sink)</code></td><td>主码流帧回调（携带曝光元数据，供 metainfo）</td></tr>
+    <tr><td><code>force_idr(pipe_id, ch)</code></td><td>强制 IDR（录制起点对齐用）</td></tr>
+    <tr><td rowspan="4"><b>sensors</b></td>
+        <td><code>sensors_init(ahz, ghz, mhz, exit)</code></td><td>起 IMU/磁线程，返回句柄</td></tr>
+    <tr><td><code>sensors_set_sample_cb(s, cb, ud)</code></td><td>注册逐样本回调（MONOTONIC_RAW ts）</td></tr>
+    <tr><td><code>sensors_get_latest(s, ...)</code></td><td>读最新值缓存</td></tr>
+    <tr><td><code>sensors_exit(s)</code></td><td>停线程</td></tr>
+    <tr><td><b>calib</b></td><td><code>calib_get_camera / calib_get_imu</code></td><td>相机内/外参、IMU 标定（Part II 的 JSON 数据来源）</td></tr>
+    <tr><td><b>uuid</b></td><td><code>uuid_get(buf, len)</code></td><td>硬件 UUID（Part II 的 <code>id.txt</code>）</td></tr>
+    <tr><td><b>utils</b></td><td><code>pts_to_realtime_ns(pts, offset_ns)</code></td><td>MI PTS → 时间戳换算</td></tr>
+    <tr><td><b>audio</b></td><td><code>audio_start / audio_stop</code></td><td>麦克风 PCM 采集（SDK 无编码器）</td></tr>
+  </table>
+
+  <h3>配置结构体 <code>SxrPipelineConfig</code> 关键字段</h3>
+  <pre><code><span class="c-kw">typedef struct</span> <span class="c-typ">SxrPipelineConfig</span> {
+    <span class="c-com">/* 输入（可配置；填 0 用默认） */</span>
+    <span class="c-kw">int</span>   isp_clk;             <span class="c-com">// ISP 时钟 Hz，默认 216M</span>
+    <span class="c-kw">int</span>   scl_clk;             <span class="c-com">// SCL 时钟 Hz，默认 288M</span>
+    <span class="c-kw">int</span>   venc_gop;             <span class="c-com">// 默认 30（IP-only，无 B 帧）</span>
+    <span class="c-kw">int</span>   venc_bitrate_bps;     <span class="c-com">// 单位 bps，默认 4 Mbps</span>
+    <span class="c-kw">int</span>   enable_preview;       <span class="c-com">// 0=关 1=开子码流</span>
+    <span class="c-kw">int</span>   preview_width;        <span class="c-com">// 0=auto -> 主码流/4（按 sensor 型号回填）</span>
+    <span class="c-kw">int</span>   preview_height;       <span class="c-com">// 0=auto -> 主码流/4</span>
+    <span class="c-kw">int</span>   preview_bitrate_bps;  <span class="c-com">// 0=auto -> 2 Mbps</span>
+    <span class="c-kw">int</span>   preview_fps;          <span class="c-com">// 0=auto -> 15</span>
+    <span class="c-kw">volatile unsigned char</span> *exit_flag;  <span class="c-com">// 退出信号</span>
+    <span class="c-typ">SxrAudioConfig</span> audio;     <span class="c-com">// 音频（16k/2ch/S16LE 默认）</span>
+
+    <span class="c-com">/* [输出] pipeline_create_venc 回填：自动探测 pad0/pad2 挂载的 sensor，</span>
+    <span class="c-com"> * 按型号决定主码流分辨率与 IQ bin */</span>
+    <span class="c-kw">int</span>   camera_mask;          <span class="c-com">// bit0=Camera0, bit1=Camera1；0=无 sensor</span>
+    <span class="c-kw">int</span>   width[SXR_RECORDER_SNR_MAX];   <span class="c-com">// 各 camera 主码流宽（探测结果）</span>
+    <span class="c-kw">int</span>   height[SXR_RECORDER_SNR_MAX];  <span class="c-com">// 各 camera 主码流高（探测结果）</span>
+    <span class="c-typ">int64_t</span> pts_offset_ns;    <span class="c-com">// [输出] PTS→MONOTONIC_RAW 偏移（ns）</span>
+} <span class="c-typ">SxrPipelineConfig</span>;</code></pre>
+  <p class="meta">另有 <code>SxrRecordConfig</code>（prealloc_bytes / sample_interval_us）、<code>SxrRecordStats</code>
+  （帧数/字节数/丢帧统计）、<code>SxrAudioConfig</code>（增益/采样率）。recorder 已内置全部默认值，自定义时才需直接面对这些类型。</p>
+</section>
+
+<!-- ===== EXAMPLE ===== -->
+<section id="example">
+  <h2>完整调用示例</h2>
+  <p>参考调用方 <code>fmp4_recorder/main.cpp</code>（产物 <code>prog_fmp4_recorder</code>，独立测试工具）：预览整场会话，循环录 N 段，
+  再读 IMU，仅使用 <code>libsxr_recorder</code> 公开 API。系统默认运行的 <code>prog_sxrservice</code>
+  （<code>sdk/verify/sample_code/demo/sxrservice</code>）经 <code>recorder_bridge.c</code> 以同样方式调用 recorder，另叠加
+  BLE/WiFi/WS 预览等业务。</p>
+
+<pre><code><span class="c-com">#include "sxr_recorder.h"</span>
+
+<span class="c-kw">static volatile unsigned char</span> g_bExit = <span class="c-num">0</span>;
+<span class="c-kw">static volatile unsigned char</span> g_recStarted = <span class="c-num">0</span>;
+<span class="c-kw">static void</span> <span class="c-fn">sig_handler</span>(<span class="c-kw">int</span> sig){ (void)sig; g_bExit = <span class="c-num">1</span>; }
+
+<span class="c-com">/* 预览回调：子码流 ch1/ch3 编码帧，跑在库内线程，须快速返回 */</span>
+<span class="c-kw">static void</span> <span class="c-fn">preview_cb</span>(<span class="c-kw">int</span> pipe_id, <span class="c-kw">int</span> ch, <span class="c-kw">const uint8_t</span> *data, <span class="c-typ">size_t</span> size,
+                         <span class="c-typ">int64_t</span> pts_us, <span class="c-kw">int</span> is_sync,
+                         <span class="c-kw">const uint8_t</span> *csd, <span class="c-typ">size_t</span> csd_size, <span class="c-kw">void</span> *ud)
+{ <span class="c-com">/* 转发到 WS / 显示等 */</span> (void)pipe_id;(void)ch;(void)data;(void)size;(void)is_sync;(void)csd;(void)csd_size;(void)ud; }
+
+<span class="c-com">/* 录制段事件回调：只设 flag，勿调 record_* */</span>
+<span class="c-kw">static void</span> <span class="c-fn">evt_cb</span>(<span class="c-typ">sxr_rec_evt_t</span> evt, <span class="c-kw">int</span> err, <span class="c-kw">void</span> *ud) {
+    (void)ud;
+    <span class="c-kw">if</span> (evt == SXR_REC_EVT_STARTED) g_recStarted = <span class="c-num">1</span>;
+    <span class="c-kw">else</span> { <span class="c-fn">printf</span>(<span class="c-str">"record event err=%d\n"</span>, err); g_bExit = <span class="c-num">1</span>; }
+}
+
+<span class="c-typ">int</span> <span class="c-fn">main</span>(<span class="c-kw">int</span> argc, <span class="c-kw">char</span> **argv) {
+    <span class="c-fn">signal</span>(SIGINT, sig_handler); <span class="c-fn">signal</span>(SIGTERM, sig_handler);
+
+    <span class="c-com">/* ① 加载 libsxr_recorder.so（dlopen + vtable，找不到返回 NULL） */</span>
+    <span class="c-kw">const</span> <span class="c-typ">sxr_recorder_api_t</span> *REC = <span class="c-fn">sxr_recorder_api</span>();
+    <span class="c-kw">if</span> (!REC) { <span class="c-fn">fprintf</span>(stderr, <span class="c-str">"load libsxr_recorder.so failed\n"</span>); <span class="c-kw">return</span> -<span class="c-num">1</span>; }
+
+    <span class="c-com">/* ② 初始化（默认 stereo + IMU + 音频；分辨率按 sensor 自动探测；给 preview_cb 则开预览） */</span>
+    <span class="c-kw">if</span> (REC-&gt;record_init(preview_cb, NULL) != <span class="c-num">0</span>) { <span class="c-fn">fprintf</span>(stderr, <span class="c-str">"record_init failed\n"</span>); <span class="c-kw">return</span> -<span class="c-num">1</span>; }
+    <span class="c-fn">sleep</span>(<span class="c-num">2</span>);   <span class="c-com">// 等 AE/AWB 收敛、管线就绪</span>
+
+    <span class="c-com">/* ③ 录 N 段，每段独立 clip_NNN/ 目录 */</span>
+    <span class="c-kw">for</span> (<span class="c-kw">int</span> seg = <span class="c-num">1</span>; seg &lt;= segs &amp;&amp; !g_bExit; seg++) {
+        <span class="c-kw">char</span> dir[<span class="c-num">640</span>];
+        <span class="c-fn">snprintf</span>(dir, <span class="c-kw">sizeof</span> dir, <span class="c-str">"/customer/sd/fmp4_recorder/clip_%03d"</span>, seg);
+        g_recStarted = <span class="c-num">0</span>;
+        <span class="c-kw">if</span> (REC-&gt;record_start(dir, evt_cb, NULL) != <span class="c-num">0</span>) <span class="c-kw">break</span>;  <span class="c-com">// 异步</span>
+        <span class="c-kw">while</span> (!g_recStarted &amp;&amp; !g_bExit) <span class="c-fn">usleep</span>(<span class="c-num">20000</span>);        <span class="c-com">// 等 STARTED</span>
+        <span class="c-fn">sleep</span>(segdur);                                    <span class="c-com">// 录制</span>
+        REC-&gt;record_stop();                                     <span class="c-com">// 收尾本段（回写 moov）</span>
+    }
+
+    <span class="c-com">/* ④ 读 IMU 最新值（可选，O(1)） */</span>
+    <span class="c-typ">sxr_imu_sample_t</span> s;
+    <span class="c-kw">if</span> (REC-&gt;imu_get_latest(&amp;s) == <span class="c-num">0</span>)
+        <span class="c-fn">printf</span>(<span class="c-str">"a=(%.2f,%.2f,%.2f) g=(%.2f,%.2f,%.2f) m=(%.1f,%.1f,%.1f) ts=%lld\n"</span>,
+               s.accel[<span class="c-num">0</span>], s.accel[<span class="c-num">1</span>], s.accel[<span class="c-num">2</span>],
+               s.gyro[<span class="c-num">0</span>], s.gyro[<span class="c-num">1</span>], s.gyro[<span class="c-num">2</span>],
+               s.mag[<span class="c-num">0</span>], s.mag[<span class="c-num">1</span>], s.mag[<span class="c-num">2</span>], (long long)s.ts_ns);
+
+    <span class="c-com">/* ⑤ 收尾（幂等；即使漏了 record_stop 也会 finalize） */</span>
+    REC-&gt;record_deinit();
+    <span class="c-kw">return</span> <span class="c-num">0</span>;
+}</code></pre>
+
+  <div class="callout ok">
+    <div class="ico">✓</div>
+    <div class="body">
+      <p>运行后目录结构：<code>/customer/sd/fmp4_recorder/clip_001/Camera{0,1}/...</code>、<code>Sensors/</code>、
+      <code>Audio/</code> 等 —— 完整结构与字段见 <a href="#ds-part">Part II</a>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== BUILD ===== -->
+<section id="build">
+  <h2>编译与部署</h2>
+
+  <h3>构建（host 上 CMake 交叉编译，无需 Docker）</h3>
+<pre><code><span class="c-com"># 一键构建：libsxr_recorder.so + prog_fmp4_recorder（产物自动 strip）</span>
+./build.sh
+
+<span class="c-com"># 产物：</span>
+<span class="c-com">#   build/libsxr_recorder/libsxr_recorder.so   ← app 运行期 dlopen</span>
+<span class="c-com">#   build/fmp4_recorder/prog_fmp4_recorder      ← 参考 app</span>
+
+<span class="c-com"># 说明：libsxr_hal.so 已集成在 ROM（固件打包），开发者接触不到，无需构建 / push；recorder 运行期自动 dlopen。</span></code></pre>
+
+  <h3>部署（SD 卡持久目录 <code>/customer/sd/</code>）</h3>
+<pre><code><span class="c-com"># libsxr_hal.so 已集成在 ROM，无需 push；只部署 recorder + app</span>
+adb push build/libsxr_recorder/libsxr_recorder.so /customer/sd/
+adb push build/fmp4_recorder/prog_fmp4_recorder  /customer/sd/
+
+<span class="c-com"># 运行（LD_LIBRARY_PATH 指向 recorder 所在目录；HAL 在 ROM 内，recorder 经 loader 自动 dlopen）</span>
+adb shell \
+  <span class="c-str">'cd /customer/sd &amp;&amp; LD_LIBRARY_PATH=/customer/sd ./prog_fmp4_recorder --segs 2 --segdur 4'</span></code></pre>
+
+  <h3>文件构成</h3>
+  <table>
+    <tr><th>文件</th><th>库</th><th>职责</th></tr>
+    <tr><td><code>include/sxr_recorder.h</code></td><td>recorder</td><td>公开 API 头（app 唯一需要 include 的头）</td></tr>
+    <tr><td><code>sxr_recorder.c</code></td><td>recorder</td><td>v2 vtable 实现：init/start/stop/deinit + 预览异步分发</td></tr>
+    <tr><td><code>mi_record.cpp</code></td><td>recorder</td><td>录制段状态机：sink 打开、fMP4/metainfo 写入、moov 回写</td></tr>
+    <tr><td><code>FMP4Writer.cpp</code></td><td>recorder</td><td>ISO BMFF 封装器</td></tr>
+    <tr><td><code>sensor_csv.cpp</code></td><td>recorder</td><td>传感器 CSV 输出 + latest 缓存</td></tr>
+    <tr><td><code>calib_json.cpp</code></td><td>recorder</td><td>camera_params.json / imu_calibration.json 序列化</td></tr>
+    <tr><td><code>hal_loader.cpp</code></td><td>recorder</td><td>dlopen <code>libsxr_hal.so</code>（RTLD_GLOBAL）</td></tr>
+    <tr><td><code>sxr_hal.h / sxr_pipeline_core.cpp / ...</code></td><td>HAL</td><td>MI 管线 / 传感器 / 标定 / UUID / 音频（内部实现，不展开）</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <div class="ico">⚠️</div>
+    <div class="body">
+      <p><b>只部署 recorder + app。</b> <code>libsxr_hal.so</code> 集成在 ROM，由固件打包，开发者无需接触。
+      recorder 部署到 <code>/customer/sd/</code>（SD 卡挂载，持久不丢），优先于 ROM 内的 <code>/customer/sample_code/lib/</code>。
+      HAL 与 recorder 的版本配套由 ROM 打包保证，二者需同源更新。</p>
+      <p><b>跨应用切换需 reboot。</b> 同一 SDK app 可反复跑；与参考 demo <code>prog_pipeline</code> 之间切换时，
+      对方 VENC 通道未完全释放，会 <code>MI_VENC_CreateChn</code> 失败（<code>0xa0022004</code>）。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PART II BAND ===== -->
+<section id="ds-part" style="border:0;padding:52px 0 0">
+  <div class="part-band g">
+    <div class="pt">Part II · 数据集结构与格式</div>
+    <h2>录制数据集</h2>
+    <p>录制产物（clip_NNN/）的文件结构与字段语义 —— 视频 / 传感器 / 音频 / UTC 映射 / 标定 / 对齐换算。</p>
+  </div>
+</section>
+
+<!-- ===== DS OVERVIEW ===== -->
+<section id="ds-overview">
+  <h2 class="base">概述</h2>
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p><b>关键事实：</b>所有数据流（视频曝光、加速度/陀螺/磁力、音频）的时间戳都统一在 <code>CLOCK_MONOTONIC_RAW</code> 纳秒域 —— <b>不是墙钟时间</b>，不能直接 <code>date -d @ts</code>。
+      要恢复 UTC，用 <a href="#ds-utcsync"><code>sensor_time_to_utc.csv</code></a> 换算。</p>
+    </div>
+  </div>
+  <table>
+    <tr><th>录制参数（默认）</th><th>值</th></tr>
+    <tr><td>视频分辨率</td><td><code>1600 × 1200</code></td></tr>
+    <tr><td>视频编码</td><td>HEVC (H.265) Main，IP-only（无 B 帧），GOP=30，CBR <b>4 Mbps</b></td></tr>
+    <tr><td>子码流（预览，不入数据集）</td><td>400 × 300，2 Mbps，15 fps</td></tr>
+    <tr><td>加速度 / 陀螺 / 磁力 采样率</td><td>800 / 800 / 200 Hz</td></tr>
+    <tr><td>音频</td><td>16 kHz，2 ch，S16_LE</td></tr>
+  </table>
+</section>
+
+<!-- ===== DS TREE ===== -->
+<section id="ds-tree">
+  <h2 class="base">目录结构</h2>
+  <p>每个片段一个 <code>clip_NNN/</code>（<code>NNN</code> 从 <code>001</code> 起，三位补零）。双目为 <code>Camera0</code>（左眼）+ <code>Camera1</code>（右眼）。</p>
+  <pre class="tree"><span class="d">&lt;output&gt;/                         # 默认 /customer/sd/fmp4_recorder</span>
+└── clip_001/                      # 一次录制片段的产物
+    ├── <span class="base">id.txt</span>                     <span class="d"># 硬件 UUID（纯文本）</span>
+    ├── <span class="utc">sensor_time_to_utc.csv</span>      <span class="d"># MONOTONIC_RAW → UTC 映射（周期采样）</span>
+    ├── <span class="cam">Camera0</span>/                     <span class="d"># 左眼</span>
+    │   ├── <span class="cam">video.mp4</span>                <span class="d"># HEVC fMP4</span>
+    │   ├── <span class="cam">metainfo.csv</span>             <span class="d"># 每帧曝光元数据</span>
+    │   └── <span class="cam">camera_params.json</span>       <span class="d"># 内参 + 外参</span>
+    ├── <span class="cam">Camera1</span>/                     <span class="d"># 右眼（结构同 Camera0）</span>
+    │   ├── video.mp4
+    │   ├── metainfo.csv
+    │   └── camera_params.json
+    ├── <span class="sensor">Sensors</span>/
+    │   ├── <span class="sensor">accel.csv</span>              <span class="d"># 加速度</span>
+    │   ├── <span class="sensor">gyro.csv</span>               <span class="d"># 陀螺</span>
+    │   ├── <span class="sensor">mag.csv</span>                <span class="d"># 磁力计</span>
+    │   └── <span class="sensor">imu_calibration.json</span>  <span class="d"># IMU 标定</span>
+    └── <span class="audio">Audio</span>/                      <span class="d"># 可选：无麦克风则整个目录不生成</span>
+        ├── <span class="audio">audio.mp4</span>              <span class="d"># PCM fMP4</span>
+        └── <span class="audio">metainfo.csv</span>
+</pre>
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p>每个 <code>clip_NNN/</code> 是一次完整、独立的录制片段，目录内文件自洽，片段之间互不影响。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DS TIME ===== -->
+<section id="ds-time">
+  <h2 class="base">时间基准</h2>
+  <p>整条数据链<b>统一 <code>CLOCK_MONOTONIC_RAW</code>（纳秒）</b>，自上电起单调递增、不受 NTP 调整影响。视频 / accel / gyro / mag / 音频同域，因此<b>天然对齐，无需跨域偏移</b>。</p>
+  <table>
+    <tr><th>时间戳</th><th>时钟域</th><th>含义</th></tr>
+    <tr><td><code>exposure_start_ns</code>（Camera metainfo）</td><td>MONOTONIC_RAW</td><td>该帧物理曝光起点</td></tr>
+    <tr><td><code>ts_ns</code>（accel/gyro/mag）</td><td>MONOTONIC_RAW</td><td>逐样本时间戳</td></tr>
+    <tr><td><code>ts_ns</code>（Audio metainfo）</td><td>MONOTONIC_RAW</td><td>该 PCM 周期的捕获时刻</td></tr>
+    <tr><td><code>pts_us</code>（视频/音频 metainfo）</td><td>视频/音频 PTS（µs）</td><td>mp4 样本时间，用于行↔样本配对；<b>非</b>墙钟</td></tr>
+    <tr><td><code>sensor_time_ns / utc_ns</code>（UTC 映射）</td><td>MONOTONIC_RAW / REALTIME</td><td>唯一墙钟桥梁</td></tr>
+  </table>
+  <div class="callout warn">
+    <div class="ico">⚠️</div>
+    <div class="body">
+      <p><b>不要</b>对 <code>ts_ns / exposure_start_ns</code> 直接做 <code>date -d</code> —— 那是开机后的单调纳秒（量级 ~1e11–1e12），不是 Unix epoch 秒。墙钟换算见 <a href="#ds-utcsync">时间映射</a>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DS CAMERA ===== -->
+<section id="ds-camera">
+  <h2 class="cam">视频与元数据（Camera{0,1}）</h2>
+
+  <h3>video.mp4 — HEVC fMP4</h3>
+  <p>fragmented MP4（ISO BMFF）。</p>
+  <ul>
+    <li><b>容器结构：</b><code>ftyp + moov</code>（前置，录制结束时按实际帧数/时长回填定稿）+ 每个 GOP 一个 <code>styp + moof + mdat</code> 片段。</li>
+    <li><b>编码：</b>HEVC Main profile，<b>IP-only（无 B 帧）</b>，保证 PTS 单调。首帧 IDR 的 VPS/SPS/PPS 组装成 <code>hvcC</code> 写入 <code>moov</code>。</li>
+    <li><b>片段边界：</b>以 I 帧为界，每个 GOP 一个片段。</li>
+  </ul>
+
+  <h3>metainfo.csv — 每帧曝光元数据</h3>
+  <p>每编码帧一行。</p>
+  <pre><code><span class="c-c"># 表头</span>
+pts_us(exp_end),exposure_start_ns,exposure_duration_ns,gain</code></pre>
+  <table>
+    <tr><th>列</th><th>单位</th><th>说明</th></tr>
+    <tr><td><code>pts_us(exp_end)</code></td><td>µs</td><td>视频 PTS（曝光<b>结束</b>时刻）。用于把 mp4 样本与该行配对（mp4 样本 PTS = 此值）。</td></tr>
+    <tr><td><code>exposure_start_ns</code></td><td>ns · MONOTONIC_RAW</td><td>该帧物理曝光起点（绝对时间，配对/立体对齐用这个）。</td></tr>
+    <tr><td><code>exposure_duration_ns</code></td><td>ns</td><td>曝光时长。</td></tr>
+    <tr><td><code>gain</code></td><td>—</td><td>AE 增益。</td></tr>
+  </table>
+  <div class="callout ok">
+    <div class="ico">✓</div>
+    <div class="body">
+      <p><b>立体对齐：</b><code>Camera0</code> 与 <code>Camera1</code> 的 <b>metainfo 第 0 行 = 同一次物理曝光</b>，两路 mp4 首样本也同帧。</p>
+    </div>
+  </div>
+
+  <h3>camera_params.json — 内参 + 外参</h3>
+  <p>单元素 <code>cameras</code> 数组（仅本眼）。</p>
+  <pre><code>{
+  "group": "tracking",
+  "cameras": [
+    {
+      "eye": "&lt;eye_name&gt;",
+      "width": 1600,
+      "height": 1200,
+      "intrinsics": {
+        "focalX": &lt;double&gt;, "focalY": &lt;double&gt;,
+        "centerX": &lt;double&gt;, "centerY": &lt;double&gt;,
+        "radialDistortion": [k1, k2, k3, k4, k5, k6, k7, k8]
+      },
+      "extrinsics": {
+        "position": [x, y, z],
+        "rotation": [qx, qy, qz, qw]          <span class="c-c">// 四元数</span>
+      }
+    }
+  ]
+}</code></pre>
+  <h4>字段说明</h4>
+  <table>
+    <tr><th>字段</th><th>含义 / 单位</th></tr>
+    <tr><td><code>eye</code></td><td>眼别标识（<code>"left"</code> / <code>"right"</code>）。</td></tr>
+    <tr><td><code>width</code> · <code>height</code></td><td>图像分辨率（像素）；native sensor 尺寸，未缩放（当前 <code>1600×1200</code>）。</td></tr>
+    <tr><td><code>intrinsics.focalX</code> · <code>focalY</code></td><td>x / y 方向焦距（像素）。</td></tr>
+    <tr><td><code>intrinsics.centerX</code> · <code>centerY</code></td><td>主点（光轴与像面交点）坐标（像素）。</td></tr>
+    <tr><td><code>intrinsics.radialDistortion[8]</code></td><td>镜头畸变系数（无量纲）；前 6 个来自设备标定，末 2 个（切向）为 0。</td></tr>
+    <tr><td><code>extrinsics.position[3]</code></td><td>相机相对参考原点的平移（SVR 坐标系）<code>[x,y,z]</code>（单位依标定约定，通常为米）。</td></tr>
+    <tr><td><code>extrinsics.rotation[4]</code></td><td>相机姿态四元数 <code>[x,y,z,w]</code>（单位四元数，SVR 坐标系）。</td></tr>
+  </table>
+
+  <h4>外参说明（extrinsics）</h4>
+  <p><code>extrinsics</code> 描述相机相对参考原点的位姿，为 <b>SVR 坐标系下的 Tbc</b>（camera → body）：<code>position</code> 为平移，<code>rotation</code> 为姿态单位四元数（<code>[x,y,z,w]</code>）。下游可直接作为相机位姿使用。</p>
+
+  <h4>畸变模型详解（radialDistortion）</h4>
+  <p>该字段描述镜头几何畸变。设备标定声明模型为 <code>FISHEYE_4_PARAMETERS</code> —— 一个 <b>4 参数鱼眼径向畸变模型</b>。8 元素数组中<b>只有前 4 个有效，其余为 0</b>（无切向畸变项）。</p>
+  <table>
+    <tr><th>下标</th><th>来源</th><th>含义</th></tr>
+    <tr><td><code>[0..3]</code> = k1, k2, k3, k4</td><td>标定给出的 4 个系数</td><td>鱼眼畸变系数（仅这 4 个有效）</td></tr>
+    <tr><td><code>[4..5]</code></td><td>预留槽位</td><td>恒为 0，未使用</td></tr>
+    <tr><td><code>[6..7]</code></td><td>补齐填充</td><td>恒为 0，凑成 8 元素，未使用</td></tr>
+  </table>
+  <p><b>基本模型：</b>理想针孔投影得归一化像坐标 <code>(x, y)</code>，到主点半径 <code>r = √(x² + y²)</code>，对应入射光与光轴夹角 <code>θ = atan(r)</code>。鱼眼镜头对大角度入射光弯曲强烈，用系数修正 <code>θ</code>（半径）的映射。4 参数鱼眼模型典型采用 Kannala-Brandt 形式：</p>
+  <pre><code>θ_d = θ · (1 + k1·θ² + k2·θ⁴ + k3·θ⁶ + k4·θ⁸)
+
+<span class="c-c"># θ   = atan(r)          归一化半径对应的入射角（针孔/等距投影下）</span>
+<span class="c-c"># θ_d                    畸变后的等效角度 → 投到像面得实际像素位置</span>
+<span class="c-c"># k1..k4                  4 个畸变系数（radialDistortion[0..3]）</span></code></pre>
+  <p><b>参数意义：</b></p>
+  <ul>
+    <li><code>k1</code>：主项，决定整体径向弯曲的方向与量级；通常 <code>|k1|</code> 远大于高阶项。</li>
+    <li><code>k2, k3, k4</code>：高阶修正项，主要影响大角度（画面边缘）区域。</li>
+    <li>系数绝对值越小，越接近理想针孔/等距投影；本设备系数量级约 <code>1e-3 ~ 1e-2</code>。</li>
+  </ul>
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p>畸变系数为设备出厂标定值，本数据集<b>原样透传，不做去畸变</b>。下游需按 <code>FISHEYE_4_PARAMETERS</code> 模型应用 k1..k4；上式为 4 参数鱼眼模型的典型（Kannala-Brandt）形式，厂家精确多项式约定以其标定规范为准。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DS SENSORS ===== -->
+<section id="ds-sensors">
+  <h2 class="sensor">传感器（Sensors/）</h2>
+  <p>录制期间每个样本逐条写入对应 CSV。<b>所有 <code>ts_ns</code> 为裸 MONOTONIC_RAW，无 REALTIME 锚定。</b></p>
+
+  <table>
+    <tr><th>文件</th><th>表头</th><th>单位</th><th>坐标系</th></tr>
+    <tr><td><code>accel.csv</code></td><td><code>ts_ns,ax,ay,az</code></td><td>m/s²</td><td>body</td></tr>
+    <tr><td><code>gyro.csv</code></td><td><code>ts_ns,gx,gy,gz</code></td><td>rad/s</td><td>body</td></tr>
+    <tr><td><code>mag.csv</code></td><td><code>ts_ns,mx,my,mz</code></td><td>µT</td><td>—</td></tr>
+  </table>
+
+  <h4>IMU 坐标系（body frame，右手系）</h4>
+  <p>加速度 / 陀螺 / 磁力数值均在设备本体坐标系下，定义如下：</p>
+  <ul>
+    <li><b>+x</b>：指向设备右侧</li>
+    <li><b>+y</b>：指向上方</li>
+    <li><b>+z</b>：指向设备后方（背离镜头 / 录制方向，朝向持机者）</li>
+    <li>右手系：<code>+x × +y = +z</code>；镜头朝 <code>−z</code>（即录制 / 视场朝向）。</li>
+  </ul>
+  <pre class="tree">                +y (上)
+                 │
+                 │
+                 │
+                 ●──────────→ +x (右)
+                ╱
+              ╱
+            +z (后，朝持机者)
+
+      镜头朝 −z 方向（录制方向）</pre>
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p>加速度计读数<b>包含重力分量</b>：设备水平、镜头朝前时 <code>ay ≈ +9.8 m/s²</code>、<code>ax ≈ az ≈ 0</code>（与本页示例一致）。陀螺正角速度方向由右手定则确定（拇指沿 +轴，四指弯曲方向为正）。</p>
+      <p>CSV 列已是物理量（单位见表），无需另行标度换算。</p>
+      <p>表头仅在新建空文件时写一次，追加重开不重复。</p>
+    </div>
+  </div>
+
+  <h3>imu_calibration.json — IMU 标定</h3>
+  <p><code>device_uid</code> = 硬件 UUID。</p>
+  <pre><code>{
+  "device_uid": "&lt;uuid&gt;",
+  "imu": {
+    "imu_id": &lt;int&gt;, "is_primary": &lt;bool&gt;,
+    "bias": {
+      "accelerometer_mps2": [x, y, z], "gyroscope_rads": [x, y, z]
+    },
+    "scale_factor": { "accelerometer": [...], "gyroscope": [...] },
+    "nonorthogonality": { "accelerometer": [...], "gyroscope": [...] },
+    "time_alignment_s": {
+      "imu_to_pose": &lt;double&gt;,
+      "cameras": { "&lt;eye&gt;": &lt;delta_s&gt;, ... },
+      "accel": &lt;double&gt;
+    }
+  },
+  "noise": {
+    "accel_noise_std_mps2": [...], "gyro_noise_std_rads": [...],
+    "accel_bias_std_mps2": [...], "gyro_bias_std_rads": [...]
+  }
+}</code></pre>
+  <h4>字段说明</h4>
+  <table>
+    <tr><th>字段</th><th>含义 / 单位</th></tr>
+    <tr><td><code>device_uid</code></td><td>设备硬件 UUID。</td></tr>
+    <tr><td><code>imu.imu_id</code></td><td>IMU 编号。</td></tr>
+    <tr><td><code>imu.is_primary</code></td><td>是否为主 IMU。</td></tr>
+    <tr><td><code>imu.bias.accelerometer_mps2[3]</code></td><td>加速度计零偏（零 G 偏置）<code>[x,y,z]</code>（m/s²）。</td></tr>
+    <tr><td><code>imu.bias.gyroscope_rads[3]</code></td><td>陀螺零偏（零速率偏置）<code>[x,y,z]</code>（rad/s）。</td></tr>
+    <tr><td><code>imu.scale_factor.accelerometer[3]</code></td><td>加速度计逐轴灵敏度标定系数（无量纲乘子）。</td></tr>
+    <tr><td><code>imu.scale_factor.gyroscope[3]</code></td><td>陀螺逐轴灵敏度标定系数（无量纲乘子）。</td></tr>
+    <tr><td><code>imu.nonorthogonality.accelerometer[3]</code></td><td>加速度计三轴非正交 / 失准修正（无量纲）。</td></tr>
+    <tr><td><code>imu.nonorthogonality.gyroscope[3]</code></td><td>陀螺三轴非正交 / 失准修正（无量纲）。</td></tr>
+    <tr><td><code>imu.time_alignment_s.imu_to_pose</code></td><td>IMU → 位姿的时间对齐偏移（s）。</td></tr>
+    <tr><td><code>imu.time_alignment_s.cameras</code></td><td>各相机相对 IMU 的时间对齐偏移（s），按眼名为键。</td></tr>
+    <tr><td><code>imu.time_alignment_s.accel</code></td><td>加速度计的时间对齐偏移（s）。</td></tr>
+    <tr><td><code>imu.noise.accel_noise_std_mps2[3]</code></td><td>加速度计测量白噪声标准差（m/s²）。</td></tr>
+    <tr><td><code>imu.noise.gyro_noise_std_rads[3]</code></td><td>陀螺测量白噪声标准差（rad/s）。</td></tr>
+    <tr><td><code>imu.noise.accel_bias_std_mps2[3]</code></td><td>加速度计零偏不稳定性 / 游走标准差（m/s²）。</td></tr>
+    <tr><td><code>imu.noise.gyro_bias_std_rads[3]</code></td><td>陀螺零偏不稳定性 / 游走标准差（rad/s）。</td></tr>
+  </table>
+  <p class="meta">以上各值为设备出厂标定值。</p>
+
+  <h4>nonorthogonality 的使用</h4>
+  <p><b>先明确：CSV 里的值是否已校正？</b>数据集的 <code>accel.csv</code> / <code>gyro.csv</code> 只经过了 <b>FSR 量程标定 + 安装方向矩阵</b>（芯片坐标 → body 坐标），<b>并未</b>应用 <code>imu_calibration.json</code> 中的 <code>bias</code> / <code>scale_factor</code> / <code>nonorthogonality</code>。这三项是设备出厂精标参数，留给下游按需应用。</p>
+  <p><b>nonorthogonality 修正什么：</b>IMU 三轴因制造公差并非严格正交（夹角 ≠ 90°），导致<b>轴间串扰</b>——某轴的真实加速度/角速度会少量泄漏到另外两轴。这组参数即用于消除该耦合；值越接近 0，正交性越好。</p>
+  <p><b>使用方式：</b>读出 CSV 值后，按 bias → scale → nonorth 的顺序校正，最后一步用 nonorthogonality 构成的 3×3 矩阵做轴间去耦：</p>
+<pre><code>v_true ≈ N⁻¹ · ( (v_csv − bias) ⊘ scale )      <span class="c-c"># ⊘ 逐元素相除</span>
+
+<span class="c-c"># 典型的 3 参数 → 3×3 非正交耦合矩阵（下三角，小角近似）：</span>
+N = ⎡ 1       0       0    ⎤
+    ⎢ n_yx    1       0    ⎥
+    ⎣ n_zx    n_zy    1    ⎦
+<span class="c-c"># n_yx：y 轴相对 x 轴的偏角，以此类推。也可能用 skew（反对称）形式。</span></code></pre>
+  <ul>
+    <li><b>顺序</b>：先去偏（bias）、再标定灵敏度（scale）、最后轴间去耦（nonorth）。</li>
+    <li><b>accel / gyro 各自一组</b>：<code>nonorthogonality.accelerometer</code> 与 <code>.gyroscope</code> 互相独立，分别用于两路。</li>
+    <li><b>量级与取舍</b>：三项校正中通常 bias 影响最大、scale 次之、nonorth 最小。一般姿态/记录类应用可忽略 nonorth；高精度 VIO / SLAM 建议应用。</li>
+  </ul>
+  <div class="callout warn">
+    <div class="ico">⚠️</div>
+    <div class="body">
+      <p>本数据集<b>原样透传</b>出厂标定值、未应用上述任何校正。3 参数到 3×3 矩阵的精确形式（下三角 / skew、乘 N 还是 N⁻¹、scale 作乘子还是除子）以设备标定规范（<code>tracking</code> 组）为准，使用前请与厂家约定核对。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DS AUDIO ===== -->
+<section id="ds-audio">
+  <h2 class="audio">音频（Audio/，可选）</h2>
+  <p>仅当麦克风存在时生成；无麦克风或打开失败则整段无音频（非致命）。</p>
+  <h3>audio.mp4 — PCM fMP4</h3>
+  <p>S16_LE 交错，16 kHz，2 ch；track timescale = 采样率。</p>
+  <h3>metainfo.csv</h3>
+  <pre><code>pts_us,ts_ns,samples</code></pre>
+  <table>
+    <tr><th>列</th><th>单位</th><th>说明</th></tr>
+    <tr><td><code>pts_us</code></td><td>µs</td><td>音频 PTS（该 PCM 周期）。</td></tr>
+    <tr><td><code>ts_ns</code></td><td>ns · MONOTONIC_RAW</td><td>该周期捕获时刻（与视频/IMU 同域）。</td></tr>
+    <tr><td><code>samples</code></td><td>帧</td><td>本周期 PCM 帧数。</td></tr>
+  </table>
+</section>
+
+<!-- ===== DS UTC ===== -->
+<section id="ds-utcsync">
+  <h2 class="utc">时间映射（sensor_time_to_utc.csv）</h2>
+  <p>把传感器时间（MONOTONIC_RAW）映射到 UTC（<code>CLOCK_REALTIME</code>）的<b>侧车文件</b>。数据流仍是裸 MONOTONIC_RAW，本文件是唯一墙钟桥梁。</p>
+  <div class="callout info">
+    <div class="ico">ℹ️</div>
+    <div class="body">
+      <p><b>为什么周期采样而非单点：</b>设备 UTC 可能被 NTP/手动校准（尤其开机后 NTP step），单点 offset 在校准后就过期。周期采样（~1 Hz）让下游对相邻行插值即可跟踪跳变，<code>offset_ns</code> 列直接显示跳变。</p>
+    </div>
+  </div>
+  <pre><code><span class="c-c"># sensor_time(MONOTONIC_RAW) -&gt; UTC mapping, sampled periodically during record</span>
+<span class="c-c"># utc(t) for sensor_time t: linear interpolation between adjacent rows</span>
+<span class="c-c"># offset_ns = utc_ns - sensor_time_ns (changes if UTC re-calibrated mid-record)</span>
+<span class="c-c"># target period = 1.000 s (actual cadence may vary slightly)</span>
+sensor_time_ns,utc_ns,offset_ns
+187435120000,1757400000000000000,1757399812564880000
+187436120000,1757400010000000000,1757399812564880000
+...</code></pre>
+  <table>
+    <tr><th>列</th><th>单位</th><th>说明</th></tr>
+    <tr><td><code>sensor_time_ns</code></td><td>ns · MONOTONIC_RAW</td><td>采样瞬时的传感器时间。</td></tr>
+    <tr><td><code>utc_ns</code></td><td>ns · REALTIME</td><td>同一瞬时的 UTC（设备墙钟）。</td></tr>
+    <tr><td><code>offset_ns</code></td><td>ns</td><td><code>utc_ns − sensor_time_ns</code>。UTC 未校准时恒定；校准后会变。</td></tr>
+  </table>
+  <ul>
+    <li><b>写入：</b>录制开始即写头 + 首行（保证零帧片段也有 ≥1 行），之后每 ~1 s 追加一行，录制结束关闭。</li>
+    <li><b>精度：</b>offset 测量误差 &lt; 1 µs 量级。</li>
+    <li><b>非致命：</b>该文件生成失败不影响录制。</li>
+  </ul>
+</section>
+
+<!-- ===== DS CALIB ===== -->
+<section id="ds-calib">
+  <h2 class="calib">标定与设备 ID</h2>
+  <h3>id.txt</h3>
+  <p>纯文本，硬件 UUID + 换行。</p>
+  <h3>标定来源</h3>
+  <p>所有标定值从设备读取并序列化为 JSON。<b>失败均非致命</b>：相机标定失败跳过该 JSON，IMU/UUID 失败则对应字段留空或文件不生成，但不阻断录制。</p>
+  <div class="callout warn">
+    <div class="ico">⚠️</div>
+    <div class="body">
+      <p><b>注意：</b>标定 JSON 的相机分辨率与 <code>video.mp4</code> 一致（当前 <code>1600×1200</code>）；若设备配置的分辨率改变，二者同步变化。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DS ALIGN ===== -->
+<section id="ds-align">
+  <h2 class="base">时间对齐与换算</h2>
+  <h3>1. 传感器时间 → UTC</h3>
+  <p>给定任意 <code>sensor_time</code>（MONOTONIC_RAW ns），在 <code>sensor_time_to_utc.csv</code> 中找包围它的两行 <code>(s₀,u₀)</code>、<code>(s₁,u₁)</code>，线性插值：</p>
+  <pre><code>utc(sensor_time) = u₀ + (u₁ − u₀) × (sensor_time − s₀) / (s₁ − s₀)</code></pre>
+  <p>UTC 未被校准时（<code>offset_ns</code> 恒定），等价于 <code>utc = sensor_time + offset_ns</code>。</p>
+  <h3>2. 视频 ↔ metainfo 配对</h3>
+  <p>mp4 样本的 PTS（µs）= metainfo 行的 <code>pts_us</code>。要拿某帧的绝对曝光时间，先按 <code>pts_us</code> 找到 metainfo 行，取其 <code>exposure_start_ns</code>（MONOTONIC_RAW），再按上一步换算 UTC。</p>
+  <h3>3. 跨流对齐</h3>
+  <p>视频 <code>exposure_start_ns</code>、IMU/磁力 <code>ts_ns</code>、音频 <code>ts_ns</code> 同属 MONOTONIC_RAW，可直接相减求时差；立体配对用两路 <code>exposure_start_ns</code> 最近邻（首帧已对齐到同一次物理曝光）。</p>
+</section>
+
+<!-- ===== DS EXAMPLE ===== -->
+<section id="ds-example">
+  <h2 class="base">完整示例</h2>
+  <p>设备上电约 187s 后开始录制，墙钟约 <code>2026-08-10 15:00 UTC</code>。以下数值仅示意。</p>
+  <pre class="tree">clip_001/
+├── id.txt                       <span class="d"># "A1B2C3D4-...\n"</span>
+├── sensor_time_to_utc.csv
+├── Camera0/{video.mp4, metainfo.csv, camera_params.json}
+├── Camera1/{video.mp4, metainfo.csv, camera_params.json}
+├── Sensors/{accel.csv, gyro.csv, mag.csv, imu_calibration.json}
+└── Audio/{audio.mp4, metainfo.csv}</pre>
+  <pre><code><span class="c-c"># Camera0/metainfo.csv</span>
+pts_us(exp_end),exposure_start_ns,exposure_duration_ns,gain
+6231456,187435116000,12480,1024
+6264789,187468449333,12480,1024
+
+<span class="c-c"># Sensors/accel.csv  (800 Hz → 行间隔 ~1.25ms)</span>
+ts_ns,ax,ay,az
+187435120000,0.123,9.806,-0.045
+187435121250,0.121,9.809,-0.044
+
+<span class="c-c"># sensor_time_to_utc.csv</span>
+sensor_time_ns,utc_ns,offset_ns
+187435120000,1757400000000000000,1757399812564880000
+187436120000,1757400010000000000,1757399812564880000
+
+<span class="c-c"># 验证：首帧曝光 exposure_start_ns=187435116000 → 换算 UTC</span>
+<span class="c-c"># utc ≈ 1757400000000000000 + (187435116000−187435120000) ≈ 1757399999999560000  (≈ 2026-08-10 15:00:00 UTC)</span></code></pre>
+</section>
+
+</div><!-- /content -->
+</div><!-- /layout -->
+</body>
+</html>
